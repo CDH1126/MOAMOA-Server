@@ -28,7 +28,7 @@ Team AnI의 MOAMOA Spring Boot · Kotlin 서버 저장소입니다.
 | Gradle | 9.3.0 | `gradle/wrapper/gradle-wrapper.properties` |
 | Swagger / OpenAPI | springdoc-openapi 3.1.1 | `build.gradle.kts` |
 
-Spring MVC, Spring Data JPA, Bean Validation, JUnit 기반 테스트를 사용합니다. 별도 DB 설치 없이 시작할 수 있도록 H2를 런타임 의존성으로 포함했습니다. 운영 DB는 아직 결정되지 않았습니다.
+Spring MVC, Spring Data JPA, Bean Validation, JUnit 기반 테스트를 사용합니다. 서버 실행에는 PostgreSQL이 필요하며, 테스트는 `test` Profile의 메모리 H2를 사용해 별도 DB 설치 없이 실행할 수 있습니다.
 
 #### 1-2. 환경 및 IDE 설정
 
@@ -54,6 +54,10 @@ git remote add upstream https://github.com/Team-AnI/MOAMOA-Server.git
 # 테스트
 ./gradlew test
 
+# 로컬 PostgreSQL 서버와 moamoa DB를 준비한 뒤 접속 정보 설정
+cp .env.example .env
+# .env의 DB_URL, DB_USERNAME, DB_PASSWORD를 실제 접속 정보로 수정
+
 # 애플리케이션 실행
 ./gradlew bootRun
 ```
@@ -69,6 +73,8 @@ Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용합니다.
 
 ```powershell
 .\gradlew.bat test
+Copy-Item .env.example .env
+# .env의 접속 정보를 수정한 뒤 실행
 .\gradlew.bat bootRun
 ```
 
@@ -85,11 +91,22 @@ Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용합니다.
 
 #### 1-5. 환경 변수 및 민감 정보
 
-현재 실행에 필요한 별도 환경 변수나 로컬 설정 파일은 없습니다. `application.yml`에는 애플리케이션 이름만 지정합니다.
+서버 실행에는 다음 DB 설정이 필요합니다. 로컬 개발에서는 `.env.example`을 저장소 루트의 `.env`로 복사하고 실제 접속 정보로 수정합니다. 예제 비밀번호 `change-me`는 실제 DB 비밀번호로 바꿔야 합니다.
+
+| 변수 | 용도 | 예시 |
+| --- | --- | --- |
+| `DB_URL` | PostgreSQL JDBC 접속 URL | `jdbc:postgresql://localhost:5432/moamoa` |
+| `DB_USERNAME` | DB 사용자 이름 | `postgres` |
+| `DB_PASSWORD` | DB 비밀번호 | 실제 DB 비밀번호 |
+
+`application.yml`은 실행 작업 디렉터리의 `.env`를 Java Properties 형식으로 읽습니다. 저장소 루트에서 실행하고, IntelliJ 실행 설정의 Working directory도 저장소 루트로 지정합니다.
 
 - 비밀번호, API Key, Access Token, Secret Key 등 민감 정보는 Git에 커밋하지 않습니다.
-- `.env`는 Git에서 제외되지만 애플리케이션이 자동으로 읽도록 설정하지 않았습니다.
-- 새로운 설정이 필요한 Issue에서 실제 변수명과 용도, 로컬 설정 관리 방법을 함께 문서화합니다.
+- `.env`는 Git에서 제외하고, 실제 비밀값이 없는 `.env.example`만 공유합니다.
+- 파일은 `KEY=value` 형식을 사용합니다. `export`나 값을 감싸는 따옴표를 사용하지 않습니다. 따옴표는 값에 포함되며, 리터럴 역슬래시는 `\\`로 작성합니다.
+- OS 환경변수로 주입한 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`는 `.env` 값보다 우선합니다. 배포 환경에서는 `.env` 없이 환경변수로 설정할 수 있습니다.
+- DB 설정에 기본값은 없습니다. `.env` 파일 자체는 선택 사항이지만, 서버 실행 시 세 변수는 모두 제공해야 합니다.
+- `./gradlew test`는 테스트 전용 H2 설정을 사용하므로 `.env`와 PostgreSQL 서버 없이 실행할 수 있습니다.
 
 ### 2. 작업 흐름
 
@@ -377,8 +394,8 @@ src/
 ```
 
 - `MoamoaApplication`: Spring Boot 시작점이며, 해당 패키지 아래를 기본 컴포넌트 스캔 범위로 사용합니다.
-- `application.yml`: 애플리케이션 이름 `moamoa-server`를 설정합니다.
-- `MoamoaApplicationTests`: `@SpringBootTest`로 Application Context 로딩을 확인합니다.
+- `application.yml`: 애플리케이션 이름 `moamoa-server`, 로컬 `.env` 로딩과 PostgreSQL 접속 정보를 설정합니다.
+- `MoamoaApplicationTests`: `test` Profile과 H2로 Application Context 로딩을 확인합니다.
 
 현재 Controller, Service, Repository, Entity, DTO와 비즈니스 요청 처리 흐름은 없습니다. 필요한 패키지와 코드는 실제 기능 개발 Issue에서 추가합니다. Swagger는 springdoc 자동 설정을 사용하며 별도 설정 클래스가 없습니다.
 
@@ -427,15 +444,16 @@ src/
 
 ### 개발환경 및 인프라
 
-- H2는 메모리 DB로 자동 설정되어 별도 서버와 접속 정보 없이 JPA가 시작됩니다. 데이터는 영구 저장되지 않습니다.
+- 서버는 PostgreSQL을 사용하며, 접속 정보는 `.env` 또는 환경변수로 제공합니다. DB 서버와 대상 DB는 실행 전에 준비해야 합니다.
+- 테스트는 `application-test.yml`의 메모리 H2를 사용합니다. 별도 서버와 접속 정보가 필요 없으며 데이터는 영구 저장되지 않습니다.
 - H2 콘솔, 샘플 테이블, 초기 데이터는 구성하지 않았습니다.
 - Kotlin `jvm`, `plugin.spring`, `plugin.jpa`를 사용합니다. Spring 프록시와 JPA 기본 생성자를 지원하고, JPA 타입의 프록시 생성을 위한 `allOpen` 설정을 포함합니다.
 - Kotlin 표준 라이브러리는 Kotlin Gradle Plugin이 추가합니다. `kotlin-reflect`와 Jackson 3 Kotlin 모듈은 직접 선언합니다.
 - Spring Boot dependency management로 관리되는 라이브러리에는 개별 버전을 지정하지 않습니다. springdoc만 `3.1.1`을 명시합니다.
 - `.gitignore`는 Gradle·Kotlin 빌드 캐시, 빌드 산출물, IntelliJ 파일과 `.env`를 제외합니다. Gradle Wrapper는 저장소에 포함합니다.
-- 별도 Spring Profile, CI/CD, Docker 구성은 없습니다.
+- 테스트용 `test` Spring Profile을 사용합니다. 별도 CI/CD, Docker 구성은 없습니다.
 
-TODO: 운영 DB 및 배포 환경은 해당 요구사항이 확정되는 Issue에서 결정하고 문서화합니다.
+TODO: 운영 DB 인프라 및 배포 환경은 해당 요구사항이 확정되는 Issue에서 결정하고 문서화합니다.
 
 ### 문서 유지 원칙
 
