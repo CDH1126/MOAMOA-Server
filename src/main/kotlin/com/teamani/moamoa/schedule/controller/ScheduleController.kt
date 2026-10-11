@@ -2,6 +2,7 @@ package com.teamani.moamoa.schedule.controller
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.service.ScheduleService
 import jakarta.validation.Valid
@@ -53,6 +54,25 @@ class ScheduleController(
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleListResponse = scheduleService.getSchedules(meetingId, currentUserId, from, to)
+
+        return ResponseEntity.ok(
+            mapOf(
+                "success" to true,
+                "data" to response,
+                "error" to null,
+                "timestamp" to OffsetDateTime.now()
+            )
+        )
+    }
+
+    @GetMapping("/{scheduleId}")
+    fun getSchedule(
+        @PathVariable meetingId: Long,
+        @PathVariable scheduleId: Long
+    ): ResponseEntity<Map<String, Any?>> {
+        val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
+
+        val response: ScheduleDetailResponse = scheduleService.getSchedule(meetingId, currentUserId, scheduleId)
 
         return ResponseEntity.ok(
             mapOf(

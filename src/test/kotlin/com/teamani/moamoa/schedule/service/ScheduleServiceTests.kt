@@ -125,4 +125,47 @@ class ScheduleServiceTests : BehaviorSpec({
             }
         }
     }
+
+    Given("모임에 속한 일정 ID가 주어졌을 때") {
+        val meetingId = 1L
+        val scheduleId = 20L
+
+        // DB에서 UTC로 읽힌 일시도 응답에서는 KST로 변환되는지 확인
+        val schedule = Schedule(
+            id = scheduleId,
+            meetingId = meetingId,
+            title = "10월 정기 러닝",
+            description = "반포 한강공원 집합",
+            startsAt = OffsetDateTime.parse("2026-10-10T22:00:00Z"),
+            endedAt = OffsetDateTime.parse("2026-10-11T00:00:00Z"),
+            location = "반포 한강공원"
+        )
+
+        `when`(scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)).thenReturn(schedule)
+
+        When("getSchedule 메서드를 호출하면") {
+            val response = scheduleService.getSchedule(meetingId, 1L, scheduleId)
+
+            Then("일정 상세를 KST 일시로 반환한다") {
+                response.scheduleId shouldBe 20L
+                response.title shouldBe "10월 정기 러닝"
+                response.description shouldBe "반포 한강공원 집합"
+                response.startAt.toString() shouldBe "2026-10-11T07:00+09:00"
+                response.endAt.toString() shouldBe "2026-10-11T09:00+09:00"
+                response.location shouldBe "반포 한강공원"
+            }
+        }
+    }
+
+    Given("없거나 다른 모임에 속한 일정 ID가 주어졌을 때") {
+        When("getSchedule 메서드를 호출하면") {
+            val exception = shouldThrow<ResponseStatusException> {
+                scheduleService.getSchedule(1L, 1L, 999L)
+            }
+
+            Then("404 Not Found 예외가 발생한다") {
+                exception.statusCode shouldBe HttpStatus.NOT_FOUND
+            }
+        }
+    }
 })

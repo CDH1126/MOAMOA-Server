@@ -2,6 +2,7 @@ package com.teamani.moamoa.schedule.controller
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
 import com.teamani.moamoa.schedule.service.ScheduleService
@@ -175,6 +176,65 @@ class ScheduleControllerTests : BehaviorSpec({
                     .param("from", "2026-10-31")
                     .param("to", "2026-10-01")
             )
+
+            Then("400 Bad Request를 반환한다") {
+                resultActions.andExpect(status().isBadRequest)
+            }
+        }
+    }
+
+    Given("유효한 일정 상세 조회 요청(GET /v1/meetings/{meetingId}/schedules/{scheduleId})이 주어졌을 때") {
+        val meetingId = 1L
+        val scheduleId = 20L
+        val mockResponse = ScheduleDetailResponse(
+            scheduleId = scheduleId,
+            title = "10월 정기 러닝",
+            description = "반포 한강공원 집합",
+            startAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00"),
+            endAt = OffsetDateTime.parse("2026-10-11T09:00:00+09:00"),
+            location = "반포 한강공원"
+        )
+
+        `when`(scheduleService.getSchedule(meetingId, 1L, scheduleId)).thenReturn(mockResponse)
+
+        When("API를 호출하면") {
+            val resultActions = mockMvc.perform(get("/v1/meetings/$meetingId/schedules/$scheduleId"))
+
+            Then("200 OK 응답과 공통 Envelope 포맷으로 일정 상세가 반환된다") {
+                resultActions
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.scheduleId").value(20L))
+                    .andExpect(jsonPath("$.data.title").value("10월 정기 러닝"))
+                    .andExpect(jsonPath("$.data.description").value("반포 한강공원 집합"))
+                    .andExpect(jsonPath("$.data.startAt").exists())
+                    .andExpect(jsonPath("$.data.endAt").exists())
+                    .andExpect(jsonPath("$.data.location").value("반포 한강공원"))
+                    .andExpect(jsonPath("$.error").doesNotExist())
+                    .andExpect(jsonPath("$.timestamp").exists())
+            }
+        }
+    }
+
+    Given("존재하지 않는 일정의 상세 조회 요청이 주어졌을 때") {
+        val meetingId = 1L
+        val scheduleId = 999L
+
+        `when`(scheduleService.getSchedule(meetingId, 1L, scheduleId))
+            .thenThrow(ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."))
+
+        When("상세 API를 호출하면") {
+            val resultActions = mockMvc.perform(get("/v1/meetings/$meetingId/schedules/$scheduleId"))
+
+            Then("404 Not Found를 반환한다") {
+                resultActions.andExpect(status().isNotFound)
+            }
+        }
+    }
+
+    Given("scheduleId가 숫자가 아닌 상세 조회 요청이 주어졌을 때") {
+        When("상세 API를 호출하면") {
+            val resultActions = mockMvc.perform(get("/v1/meetings/1/schedules/abc"))
 
             Then("400 Bad Request를 반환한다") {
                 resultActions.andExpect(status().isBadRequest)

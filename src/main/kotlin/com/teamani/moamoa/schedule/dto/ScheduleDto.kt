@@ -46,3 +46,12 @@ data class ScheduleSummaryResponse(
     val endAt: OffsetDateTime?,
     val location: String?
 )
+
+data class ScheduleDetailResponse(
+    val scheduleId: Long,
+    val title: String,
+    val description: String?,
+    val startAt: OffsetDateTime,
+    val endAt: OffsetDateTime?,
+    val location: String?
+)

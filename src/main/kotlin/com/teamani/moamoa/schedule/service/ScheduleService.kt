@@ -2,6 +2,7 @@ package com.teamani.moamoa.schedule.service
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
 import com.teamani.moamoa.schedule.entity.Schedule
@@ -68,6 +69,24 @@ class ScheduleService(
                     location = schedule.location
                 )
             }
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getSchedule(meetingId: Long, userId: Long, scheduleId: Long): ScheduleDetailResponse {
+        validateMeeting(meetingId)
+        validateMember(meetingId, userId)
+
+        val schedule = scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다.")
+
+        return ScheduleDetailResponse(
+            scheduleId = checkNotNull(schedule.id) { "일정 식별자가 없습니다." },
+            title = schedule.title,
+            description = schedule.description,
+            startAt = schedule.startsAt.withOffsetSameInstant(KST),
+            endAt = schedule.endedAt?.withOffsetSameInstant(KST),
+            location = schedule.location
         )
     }
 
