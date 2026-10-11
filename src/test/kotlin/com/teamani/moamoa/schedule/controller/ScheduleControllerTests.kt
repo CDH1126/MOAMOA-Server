@@ -2,16 +2,22 @@ package com.teamani.moamoa.schedule.controller
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleListResponse
+import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
 import com.teamani.moamoa.schedule.service.ScheduleService
 import io.kotest.core.spec.style.BehaviorSpec
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.server.ResponseStatusException
+import java.time.LocalDate
 import java.time.OffsetDateTime
 
 class ScheduleControllerTests : BehaviorSpec({
@@ -89,6 +95,89 @@ class ScheduleControllerTests : BehaviorSpec({
                 Then("400 Bad Request를 반환한다") {
                     resultActions.andExpect(status().isBadRequest)
                 }
+            }
+        }
+    }
+
+    Given("유효한 일정 목록 조회 요청(GET /v1/meetings/{meetingId}/schedules)이 주어졌을 때") {
+        val meetingId = 1L
+        val from = LocalDate.parse("2026-10-01")
+        val to = LocalDate.parse("2026-10-31")
+        val mockResponse = ScheduleListResponse(
+            schedules = listOf(
+                ScheduleSummaryResponse(
+                    scheduleId = 20L,
+                    title = "10월 정기 러닝",
+                    startAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00"),
+                    endAt = OffsetDateTime.parse("2026-10-11T09:00:00+09:00"),
+                    location = "반포 한강공원"
+                )
+            )
+        )
+
+        `when`(scheduleService.getSchedules(meetingId, 1L, from, to)).thenReturn(mockResponse)
+
+        When("API를 호출하면") {
+            val resultActions = mockMvc.perform(
+                get("/v1/meetings/$meetingId/schedules")
+                    .param("from", "2026-10-01")
+                    .param("to", "2026-10-31")
+            )
+
+            Then("200 OK 응답과 공통 Envelope 포맷으로 일정 목록이 반환된다") {
+                resultActions
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.schedules[0].scheduleId").value(20L))
+                    .andExpect(jsonPath("$.data.schedules[0].title").value("10월 정기 러닝"))
+                    .andExpect(jsonPath("$.data.schedules[0].startAt").exists())
+                    .andExpect(jsonPath("$.data.schedules[0].endAt").exists())
+                    .andExpect(jsonPath("$.data.schedules[0].location").value("반포 한강공원"))
+                    .andExpect(jsonPath("$.error").doesNotExist())
+                    .andExpect(jsonPath("$.timestamp").exists())
+            }
+        }
+    }
+
+    Given("from 또는 to가 누락되었거나 형식이 잘못된 일정 목록 조회 요청이 주어졌을 때") {
+        val meetingId = 1L
+        val invalidQueries = mapOf(
+            "from 누락" to mapOf("to" to "2026-10-31"),
+            "to 누락" to mapOf("from" to "2026-10-01"),
+            "from 형식 오류" to mapOf("from" to "2026/10/01", "to" to "2026-10-31"),
+            "to 형식 오류" to mapOf("from" to "2026-10-01", "to" to "20261031")
+        )
+
+        invalidQueries.forEach { (case, params) ->
+            When("$case 요청으로 목록 API를 호출하면") {
+                val request = get("/v1/meetings/$meetingId/schedules")
+                params.forEach { (name, value) -> request.param(name, value) }
+                val resultActions = mockMvc.perform(request)
+
+                Then("400 Bad Request를 반환한다") {
+                    resultActions.andExpect(status().isBadRequest)
+                }
+            }
+        }
+    }
+
+    Given("from이 to보다 이후인 일정 목록 조회 요청이 주어졌을 때") {
+        val meetingId = 1L
+        val from = LocalDate.parse("2026-10-31")
+        val to = LocalDate.parse("2026-10-01")
+
+        `when`(scheduleService.getSchedules(meetingId, 1L, from, to))
+            .thenThrow(ResponseStatusException(HttpStatus.BAD_REQUEST, "조회 시작일은 종료일보다 이후일 수 없습니다."))
+
+        When("목록 API를 호출하면") {
+            val resultActions = mockMvc.perform(
+                get("/v1/meetings/$meetingId/schedules")
+                    .param("from", "2026-10-31")
+                    .param("to", "2026-10-01")
+            )
+
+            Then("400 Bad Request를 반환한다") {
+                resultActions.andExpect(status().isBadRequest)
             }
         }
     }
