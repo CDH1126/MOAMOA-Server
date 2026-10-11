@@ -34,3 +34,15 @@ data class ScheduleCreateResponse(
     val title: String,
     val startAt: OffsetDateTime
 )
+
+data class ScheduleListResponse(
+    val schedules: List<ScheduleSummaryResponse>
+)
+
+data class ScheduleSummaryResponse(
+    val scheduleId: Long,
+    val title: String,
+    val startAt: OffsetDateTime,
+    val endAt: OffsetDateTime?,
+    val location: String?
+)
