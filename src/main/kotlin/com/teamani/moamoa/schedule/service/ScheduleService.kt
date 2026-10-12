@@ -41,7 +41,7 @@ class ScheduleService(
         return ScheduleCreateResponse(
             scheduleId = checkNotNull(savedSchedule.id) { "일정 식별자가 생성되지 않았습니다." },
             title = savedSchedule.title,
-            startAt = savedSchedule.startsAt
+            startAt = savedSchedule.startsAt.withOffsetSameInstant(KST)
         )
     }
 

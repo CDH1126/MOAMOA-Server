@@ -40,12 +40,13 @@ class ScheduleServiceTests : BehaviorSpec({
             location = "반포 한강공원"
         )
 
+        // DB에서 UTC로 읽힌 일시도 응답에서는 KST로 변환되는지 확인
         val savedEntity = Schedule(
             id = 20L,
             meetingId = meetingId,
             title = "10월 정기 러닝",
             description = "반포 한강공원 집합",
-            startsAt = startAt,
+            startsAt = OffsetDateTime.parse("2026-10-10T22:00:00Z"),
             endedAt = request.endAt,
             location = "반포 한강공원"
         )
@@ -59,7 +60,7 @@ class ScheduleServiceTests : BehaviorSpec({
                 response.shouldNotBeNull()
                 response.scheduleId shouldBe 20L
                 response.title shouldBe "10월 정기 러닝"
-                response.startAt shouldBe startAt
+                response.startAt.toString() shouldBe "2026-10-11T07:00+09:00"
                 verify(scheduleRepository).save(any(Schedule::class.java))
             }
         }

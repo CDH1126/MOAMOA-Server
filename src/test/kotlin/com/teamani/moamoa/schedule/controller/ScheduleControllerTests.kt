@@ -53,7 +53,7 @@ class ScheduleControllerTests : BehaviorSpec({
         val mockResponse = ScheduleCreateResponse(
             scheduleId = 20L,
             title = "10월 정기 러닝",
-            startAt = OffsetDateTime.parse("2026-10-10T22:00:00Z")
+            startAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00")
         )
 
         `when`(scheduleService.createSchedule(meetingId, 1L, request)).thenReturn(mockResponse)
