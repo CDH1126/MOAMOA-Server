@@ -2,6 +2,7 @@ package com.teamani.moamoa.schedule.controller
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleDeleteResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
@@ -10,6 +11,7 @@ import jakarta.validation.Valid
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -96,6 +98,25 @@ class ScheduleController(
 
         val response: ScheduleDetailResponse =
             scheduleService.updateSchedule(meetingId, currentUserId, scheduleId, request)
+
+        return ResponseEntity.ok(
+            mapOf(
+                "success" to true,
+                "data" to response,
+                "error" to null,
+                "timestamp" to OffsetDateTime.now()
+            )
+        )
+    }
+
+    @DeleteMapping("/{scheduleId}")
+    fun deleteSchedule(
+        @PathVariable meetingId: Long,
+        @PathVariable scheduleId: Long
+    ): ResponseEntity<Map<String, Any?>> {
+        val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
+
+        val response: ScheduleDeleteResponse = scheduleService.deleteSchedule(meetingId, currentUserId, scheduleId)
 
         return ResponseEntity.ok(
             mapOf(

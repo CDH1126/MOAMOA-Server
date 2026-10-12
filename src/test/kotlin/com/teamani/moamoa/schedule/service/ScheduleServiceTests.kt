@@ -13,6 +13,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.clearInvocations
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import org.springframework.http.HttpStatus
@@ -255,6 +256,41 @@ class ScheduleServiceTests : BehaviorSpec({
 
             Then("404 Not Found 예외가 발생한다") {
                 exception.statusCode shouldBe HttpStatus.NOT_FOUND
+            }
+        }
+    }
+
+    Given("삭제할 일정이 모임에 존재할 때") {
+        val meetingId = 1L
+        val scheduleId = 20L
+        val schedule = Schedule(
+            id = scheduleId,
+            meetingId = meetingId,
+            title = "10월 정기 러닝",
+            startsAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00")
+        )
+
+        `when`(scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)).thenReturn(schedule)
+
+        When("deleteSchedule 메서드를 호출하면") {
+            val response = scheduleService.deleteSchedule(meetingId, 1L, scheduleId)
+
+            Then("일정이 삭제되고 삭제된 일정 ID가 반환된다") {
+                response.scheduleId shouldBe 20L
+                verify(scheduleRepository).delete(schedule)
+            }
+        }
+    }
+
+    Given("없거나 다른 모임에 속한 일정을 삭제하려 할 때") {
+        When("deleteSchedule 메서드를 호출하면") {
+            val exception = shouldThrow<ResponseStatusException> {
+                scheduleService.deleteSchedule(1L, 1L, 999L)
+            }
+
+            Then("404 Not Found 예외가 발생하고 아무것도 삭제하지 않는다") {
+                exception.statusCode shouldBe HttpStatus.NOT_FOUND
+                verify(scheduleRepository, never()).delete(any(Schedule::class.java))
             }
         }
     }

@@ -2,6 +2,7 @@ package com.teamani.moamoa.schedule.controller
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleDeleteResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
@@ -13,6 +14,7 @@ import org.mockito.Mockito.mock
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -340,6 +342,40 @@ class ScheduleControllerTests : BehaviorSpec({
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{ "title": "변경된 제목" }""")
             )
+
+            Then("404 Not Found를 반환한다") {
+                resultActions.andExpect(status().isNotFound)
+            }
+        }
+    }
+
+    Given("유효한 일정 삭제 요청(DELETE /v1/meetings/{meetingId}/schedules/{scheduleId})이 주어졌을 때") {
+        val meetingId = 1L
+        val scheduleId = 20L
+
+        `when`(scheduleService.deleteSchedule(meetingId, 1L, scheduleId))
+            .thenReturn(ScheduleDeleteResponse(scheduleId = scheduleId))
+
+        When("API를 호출하면") {
+            val resultActions = mockMvc.perform(delete("/v1/meetings/$meetingId/schedules/$scheduleId"))
+
+            Then("200 OK 응답과 공통 Envelope 포맷으로 삭제된 일정 ID가 반환된다") {
+                resultActions
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.scheduleId").value(20L))
+                    .andExpect(jsonPath("$.error").doesNotExist())
+                    .andExpect(jsonPath("$.timestamp").exists())
+            }
+        }
+    }
+
+    Given("존재하지 않는 일정의 삭제 요청이 주어졌을 때") {
+        `when`(scheduleService.deleteSchedule(1L, 1L, 999L))
+            .thenThrow(ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."))
+
+        When("삭제 API를 호출하면") {
+            val resultActions = mockMvc.perform(delete("/v1/meetings/1/schedules/999"))
 
             Then("404 Not Found를 반환한다") {
                 resultActions.andExpect(status().isNotFound)

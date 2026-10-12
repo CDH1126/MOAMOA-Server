@@ -2,6 +2,7 @@ package com.teamani.moamoa.schedule.service
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
+import com.teamani.moamoa.schedule.dto.ScheduleDeleteResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
@@ -108,6 +109,19 @@ class ScheduleService(
         schedule.update(request.title, request.description, request.startAt, request.endAt, request.location)
 
         return toDetailResponse(schedule)
+    }
+
+    @Transactional
+    fun deleteSchedule(meetingId: Long, userId: Long, scheduleId: Long): ScheduleDeleteResponse {
+        validateMeeting(meetingId)
+        validateAdmin(meetingId, userId)
+
+        val schedule = scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다.")
+
+        scheduleRepository.delete(schedule)
+
+        return ScheduleDeleteResponse(scheduleId = scheduleId)
     }
 
     private fun toDetailResponse(schedule: Schedule): ScheduleDetailResponse =

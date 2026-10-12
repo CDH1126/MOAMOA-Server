@@ -64,6 +64,10 @@ data class ScheduleUpdateRequest(
     val location: String? = null
 )
 
+data class ScheduleDeleteResponse(
+    val scheduleId: Long
+)
+
 data class ScheduleDetailResponse(
     val scheduleId: Long,
     val title: String,
