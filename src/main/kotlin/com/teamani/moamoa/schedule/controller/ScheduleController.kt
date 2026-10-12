@@ -4,12 +4,14 @@ import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
+import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.service.ScheduleService
 import jakarta.validation.Valid
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -73,6 +75,27 @@ class ScheduleController(
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleDetailResponse = scheduleService.getSchedule(meetingId, currentUserId, scheduleId)
+
+        return ResponseEntity.ok(
+            mapOf(
+                "success" to true,
+                "data" to response,
+                "error" to null,
+                "timestamp" to OffsetDateTime.now()
+            )
+        )
+    }
+
+    @PatchMapping("/{scheduleId}")
+    fun updateSchedule(
+        @PathVariable meetingId: Long,
+        @PathVariable scheduleId: Long,
+        @Valid @RequestBody request: ScheduleUpdateRequest
+    ): ResponseEntity<Map<String, Any?>> {
+        val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
+
+        val response: ScheduleDetailResponse =
+            scheduleService.updateSchedule(meetingId, currentUserId, scheduleId, request)
 
         return ResponseEntity.ok(
             mapOf(

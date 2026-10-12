@@ -5,6 +5,7 @@ import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
+import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.service.ScheduleService
 import io.kotest.core.spec.style.BehaviorSpec
 import org.mockito.Mockito.`when`
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -238,6 +240,109 @@ class ScheduleControllerTests : BehaviorSpec({
 
             Then("400 Bad Request를 반환한다") {
                 resultActions.andExpect(status().isBadRequest)
+            }
+        }
+    }
+
+    Given("유효한 일정 수정 요청(PATCH /v1/meetings/{meetingId}/schedules/{scheduleId})이 주어졌을 때") {
+        val meetingId = 1L
+        val scheduleId = 20L
+        val requestJson = """{ "startAt": "2026-10-10T23:00:00Z", "endAt": "2026-10-11T01:00:00Z" }"""
+        val request = ScheduleUpdateRequest(
+            startAt = OffsetDateTime.parse("2026-10-10T23:00:00Z"),
+            endAt = OffsetDateTime.parse("2026-10-11T01:00:00Z")
+        )
+        val mockResponse = ScheduleDetailResponse(
+            scheduleId = scheduleId,
+            title = "10월 정기 러닝",
+            description = "반포 한강공원 집합",
+            startAt = OffsetDateTime.parse("2026-10-11T08:00:00+09:00"),
+            endAt = OffsetDateTime.parse("2026-10-11T10:00:00+09:00"),
+            location = "반포 한강공원"
+        )
+
+        `when`(scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)).thenReturn(mockResponse)
+
+        When("API를 호출하면") {
+            val resultActions = mockMvc.perform(
+                patch("/v1/meetings/$meetingId/schedules/$scheduleId")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestJson)
+            )
+
+            Then("200 OK 응답과 공통 Envelope 포맷으로 수정된 전체 일정이 반환된다") {
+                resultActions
+                    .andExpect(status().isOk)
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.scheduleId").value(20L))
+                    .andExpect(jsonPath("$.data.title").value("10월 정기 러닝"))
+                    .andExpect(jsonPath("$.data.description").value("반포 한강공원 집합"))
+                    .andExpect(jsonPath("$.data.startAt").exists())
+                    .andExpect(jsonPath("$.data.endAt").exists())
+                    .andExpect(jsonPath("$.data.location").value("반포 한강공원"))
+                    .andExpect(jsonPath("$.error").doesNotExist())
+                    .andExpect(jsonPath("$.timestamp").exists())
+            }
+        }
+    }
+
+    Given("제목이 공백이거나 너무 긴 일정 수정 요청이 주어졌을 때") {
+        val invalidRequests = mapOf(
+            "공백 title" to """{ "title": "   " }""",
+            "빈 문자열 title" to """{ "title": "" }""",
+            "100자 초과 title" to """{ "title": "${"가".repeat(101)}" }""",
+            "255자 초과 location" to """{ "location": "${"가".repeat(256)}" }"""
+        )
+
+        invalidRequests.forEach { (case, requestJson) ->
+            When("$case 요청으로 수정 API를 호출하면") {
+                val resultActions = mockMvc.perform(
+                    patch("/v1/meetings/1/schedules/20")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson)
+                )
+
+                Then("400 Bad Request를 반환한다") {
+                    resultActions.andExpect(status().isBadRequest)
+                }
+            }
+        }
+    }
+
+    Given("수정 결과 종료 일시가 시작 일시보다 이전이 되는 일정 수정 요청이 주어졌을 때") {
+        val request = ScheduleUpdateRequest(endAt = OffsetDateTime.parse("2026-10-10T20:00:00Z"))
+
+        `when`(scheduleService.updateSchedule(1L, 1L, 20L, request))
+            .thenThrow(ResponseStatusException(HttpStatus.BAD_REQUEST, "종료 일시는 시작 일시 이후여야 합니다."))
+
+        When("수정 API를 호출하면") {
+            val resultActions = mockMvc.perform(
+                patch("/v1/meetings/1/schedules/20")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{ "endAt": "2026-10-10T20:00:00Z" }""")
+            )
+
+            Then("400 Bad Request를 반환한다") {
+                resultActions.andExpect(status().isBadRequest)
+            }
+        }
+    }
+
+    Given("존재하지 않는 일정의 수정 요청이 주어졌을 때") {
+        val request = ScheduleUpdateRequest(title = "변경된 제목")
+
+        `when`(scheduleService.updateSchedule(1L, 1L, 999L, request))
+            .thenThrow(ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."))
+
+        When("수정 API를 호출하면") {
+            val resultActions = mockMvc.perform(
+                patch("/v1/meetings/1/schedules/999")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{ "title": "변경된 제목" }""")
+            )
+
+            Then("404 Not Found를 반환한다") {
+                resultActions.andExpect(status().isNotFound)
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.teamani.moamoa.schedule.service
 
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
+import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.entity.Schedule
 import com.teamani.moamoa.schedule.repository.ScheduleRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -161,6 +162,95 @@ class ScheduleServiceTests : BehaviorSpec({
         When("getSchedule 메서드를 호출하면") {
             val exception = shouldThrow<ResponseStatusException> {
                 scheduleService.getSchedule(1L, 1L, 999L)
+            }
+
+            Then("404 Not Found 예외가 발생한다") {
+                exception.statusCode shouldBe HttpStatus.NOT_FOUND
+            }
+        }
+    }
+
+    Given("수정할 일정이 모임에 존재할 때") {
+        val meetingId = 1L
+        val scheduleId = 20L
+
+        // 각 When마다 원본 상태에서 시작하도록 새 엔티티를 만들어 조회 결과로 지정
+        fun stubSchedule(): Schedule {
+            val schedule = Schedule(
+                id = scheduleId,
+                meetingId = meetingId,
+                title = "10월 정기 러닝",
+                description = "반포 한강공원 집합",
+                startsAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00"),
+                endedAt = OffsetDateTime.parse("2026-10-11T09:00:00+09:00"),
+                location = "반포 한강공원"
+            )
+            `when`(scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)).thenReturn(schedule)
+            return schedule
+        }
+
+        When("시작·종료 일시만 보내면") {
+            val schedule = stubSchedule()
+            val request = ScheduleUpdateRequest(
+                startAt = OffsetDateTime.parse("2026-10-10T23:00:00Z"),
+                endAt = OffsetDateTime.parse("2026-10-11T01:00:00Z")
+            )
+            val response = scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)
+
+            Then("보낸 필드만 변경되고 나머지는 유지되며 일시는 KST로 반환된다") {
+                response.title shouldBe "10월 정기 러닝"
+                response.description shouldBe "반포 한강공원 집합"
+                response.location shouldBe "반포 한강공원"
+                response.startAt.toString() shouldBe "2026-10-11T08:00+09:00"
+                response.endAt.toString() shouldBe "2026-10-11T10:00+09:00"
+                schedule.startsAt shouldBe request.startAt
+            }
+        }
+
+        When("제목·설명·장소만 보내면") {
+            stubSchedule()
+            val request = ScheduleUpdateRequest(title = "10월 번개 러닝", description = "잠수교 집합", location = "잠수교")
+            val response = scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)
+
+            Then("해당 필드만 변경되고 일시는 유지된다") {
+                response.title shouldBe "10월 번개 러닝"
+                response.description shouldBe "잠수교 집합"
+                response.location shouldBe "잠수교"
+                response.startAt.toString() shouldBe "2026-10-11T07:00+09:00"
+                response.endAt.toString() shouldBe "2026-10-11T09:00+09:00"
+            }
+        }
+
+        When("기존 시작 일시보다 이전인 종료 일시만 보내면") {
+            val schedule = stubSchedule()
+            val request = ScheduleUpdateRequest(endAt = OffsetDateTime.parse("2026-10-11T06:00:00+09:00"))
+            val exception = shouldThrow<ResponseStatusException> {
+                scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)
+            }
+
+            Then("400 Bad Request 예외가 발생하고 일정은 변경되지 않는다") {
+                exception.statusCode shouldBe HttpStatus.BAD_REQUEST
+                schedule.endedAt.toString() shouldBe "2026-10-11T09:00+09:00"
+            }
+        }
+
+        When("기존 종료 일시보다 이후인 시작 일시만 보내면") {
+            stubSchedule()
+            val request = ScheduleUpdateRequest(startAt = OffsetDateTime.parse("2026-10-11T10:00:00+09:00"))
+            val exception = shouldThrow<ResponseStatusException> {
+                scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)
+            }
+
+            Then("400 Bad Request 예외가 발생한다") {
+                exception.statusCode shouldBe HttpStatus.BAD_REQUEST
+            }
+        }
+    }
+
+    Given("없거나 다른 모임에 속한 일정을 수정하려 할 때") {
+        When("updateSchedule 메서드를 호출하면") {
+            val exception = shouldThrow<ResponseStatusException> {
+                scheduleService.updateSchedule(1L, 1L, 999L, ScheduleUpdateRequest(title = "변경된 제목"))
             }
 
             Then("404 Not Found 예외가 발생한다") {

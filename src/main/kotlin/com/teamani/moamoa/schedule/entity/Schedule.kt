@@ -50,4 +50,20 @@ class Schedule(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
-)
+) {
+
+    // 전달된 값만 변경 (null이면 기존 값 유지)
+    fun update(
+        title: String?,
+        description: String?,
+        startsAt: OffsetDateTime?,
+        endedAt: OffsetDateTime?,
+        location: String?
+    ) {
+        title?.let { this.title = it }
+        description?.let { this.description = it }
+        startsAt?.let { this.startsAt = it }
+        endedAt?.let { this.endedAt = it }
+        location?.let { this.location = it }
+    }
+}
