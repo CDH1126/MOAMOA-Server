@@ -1,5 +1,7 @@
 package com.teamani.moamoa.notice.service
 
+import com.teamani.moamoa.global.exception.ApiException
+import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.notice.dto.NoticeCreateRequest
 import com.teamani.moamoa.notice.dto.NoticeCreateResponse
 import com.teamani.moamoa.notice.dto.NoticeDeleteResponse
@@ -47,12 +49,10 @@ class NoticeService(
         // ADMIN 권한 검증 (Member 도메인 연동 후속 이슈 처리 예정)
         validateAdmin(meetingId, userId)
 
-        // 공지 조회 (존재하지 않으면 예외 발생)
+        // 공지 조회 (존재하지 않거나 다른 모임의 공지면 404)
         val notice = noticeRepository.findById(noticeId)
-            .orElseThrow { IllegalArgumentException("공지사항을 찾을 수 없습니다. id: $noticeId") }
-
-        // 해당 모임에 속한 공지인지 검증
-        require(notice.meetingId == meetingId) { "해당 모임의 공지사항이 아닙니다." }
+            .filter { it.meetingId == meetingId }
+            .orElseThrow { ApiException(ErrorCode.NOT_FOUND, "공지사항을 찾을 수 없습니다.") }
 
         // DB 삭제
         noticeRepository.delete(notice)
