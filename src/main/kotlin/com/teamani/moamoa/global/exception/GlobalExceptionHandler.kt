@@ -3,12 +3,15 @@ package com.teamani.moamoa.global.exception
 import com.teamani.moamoa.global.response.ErrorResponse
 import com.teamani.moamoa.global.response.ValidationDetail
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @RestControllerAdvice
@@ -43,6 +46,42 @@ class GlobalExceptionHandler {
             .body(ErrorResponseFactory.of(ErrorCode.VALIDATION_ERROR, details = details))
     }
 
+    @ExceptionHandler(HandlerMethodValidationException::class)
+    fun handleMethodValidation(
+        ex: HandlerMethodValidationException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logError(ErrorCode.VALIDATION_ERROR, ex, request)
+        val details = ex.parameterValidationResults.flatMap { result ->
+            result.resolvableErrors.map {
+                ValidationDetail(
+                    field = result.methodParameter.parameterName.orEmpty(),
+                    reason = it.defaultMessage.orEmpty(),
+                    rejectedValue = result.argument,
+                )
+            }
+        }
+        return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.status)
+            .body(ErrorResponseFactory.of(ErrorCode.VALIDATION_ERROR, details = details))
+    }
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolation(
+        ex: ConstraintViolationException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logError(ErrorCode.VALIDATION_ERROR, ex, request)
+        val details = ex.constraintViolations.map {
+            ValidationDetail(
+                field = it.propertyPath.lastOrNull()?.name.orEmpty(),
+                reason = it.message,
+                rejectedValue = it.invalidValue,
+            )
+        }
+        return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.status)
+            .body(ErrorResponseFactory.of(ErrorCode.VALIDATION_ERROR, details = details))
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadable(
         ex: HttpMessageNotReadableException,
@@ -61,6 +100,16 @@ class GlobalExceptionHandler {
         logError(ErrorCode.INPUT_ERROR, ex, request)
         return ResponseEntity.status(ErrorCode.INPUT_ERROR.status)
             .body(ErrorResponseFactory.of(ErrorCode.INPUT_ERROR))
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException::class)
+    fun handleMissingParameter(
+        ex: MissingServletRequestParameterException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logError(ErrorCode.MISSING_REQUIRED_VALUE, ex, request)
+        return ResponseEntity.status(ErrorCode.MISSING_REQUIRED_VALUE.status)
+            .body(ErrorResponseFactory.of(ErrorCode.MISSING_REQUIRED_VALUE))
     }
 
     @ExceptionHandler(Exception::class)
