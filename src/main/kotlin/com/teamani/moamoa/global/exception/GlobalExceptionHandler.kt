@@ -7,6 +7,7 @@ import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.validation.method.ParameterErrors
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -39,7 +40,7 @@ class GlobalExceptionHandler {
             ValidationDetail(
                 field = it.field,
                 reason = it.defaultMessage.orEmpty(),
-                rejectedValue = it.rejectedValue,
+                rejectedValue = maskSensitive(it.field, it.rejectedValue),
             )
         }
         return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.status)
@@ -52,13 +53,25 @@ class GlobalExceptionHandler {
         request: HttpServletRequest,
     ): ResponseEntity<ErrorResponse> {
         logError(ErrorCode.VALIDATION_ERROR, ex, request)
+        // 요청 본문 검증 오류는 본문 전체가 아닌 필드 단위로 변환
         val details = ex.parameterValidationResults.flatMap { result ->
-            result.resolvableErrors.map {
-                ValidationDetail(
-                    field = result.methodParameter.parameterName.orEmpty(),
-                    reason = it.defaultMessage.orEmpty(),
-                    rejectedValue = result.argument,
-                )
+            if (result is ParameterErrors) {
+                result.fieldErrors.map {
+                    ValidationDetail(
+                        field = it.field,
+                        reason = it.defaultMessage.orEmpty(),
+                        rejectedValue = maskSensitive(it.field, it.rejectedValue),
+                    )
+                }
+            } else {
+                val field = result.methodParameter.parameterName.orEmpty()
+                result.resolvableErrors.map {
+                    ValidationDetail(
+                        field = field,
+                        reason = it.defaultMessage.orEmpty(),
+                        rejectedValue = maskSensitive(field, result.argument),
+                    )
+                }
             }
         }
         return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.status)
@@ -72,10 +85,11 @@ class GlobalExceptionHandler {
     ): ResponseEntity<ErrorResponse> {
         logError(ErrorCode.VALIDATION_ERROR, ex, request)
         val details = ex.constraintViolations.map {
+            val field = it.propertyPath.lastOrNull()?.name.orEmpty()
             ValidationDetail(
-                field = it.propertyPath.lastOrNull()?.name.orEmpty(),
+                field = field,
                 reason = it.message,
-                rejectedValue = it.invalidValue,
+                rejectedValue = maskSensitive(field, it.invalidValue),
             )
         }
         return ResponseEntity.status(ErrorCode.VALIDATION_ERROR.status)
@@ -133,7 +147,12 @@ class GlobalExceptionHandler {
         }
     }
 
+    // 비밀번호·토큰·개인정보 등 민감 필드는 입력값 대신 null 반환
+    private fun maskSensitive(field: String, value: Any?): Any? =
+        if (SENSITIVE_FIELD_KEYWORDS.any { field.contains(it, ignoreCase = true) }) null else value
+
     companion object {
         private const val LOG_FORMAT = "[{} {}] {} {} - {}"
+        private val SENSITIVE_FIELD_KEYWORDS = listOf("password", "token", "secret", "email", "phone")
     }
 }
