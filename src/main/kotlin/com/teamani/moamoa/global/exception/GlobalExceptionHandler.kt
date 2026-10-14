@@ -8,12 +8,15 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.validation.method.ParameterErrors
+import org.springframework.web.HttpMediaTypeNotSupportedException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -124,6 +127,40 @@ class GlobalExceptionHandler {
         logError(ErrorCode.MISSING_REQUIRED_VALUE, ex, request)
         return ResponseEntity.status(ErrorCode.MISSING_REQUIRED_VALUE.status)
             .body(ErrorResponseFactory.of(ErrorCode.MISSING_REQUIRED_VALUE))
+    }
+
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResource(
+        ex: NoResourceFoundException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logError(ErrorCode.NOT_FOUND, ex, request)
+        return ResponseEntity.status(ErrorCode.NOT_FOUND.status)
+            .body(ErrorResponseFactory.of(ErrorCode.NOT_FOUND))
+    }
+
+    // 허용 메서드 안내를 위해 Allow 헤더 포함
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotSupported(
+        ex: HttpRequestMethodNotSupportedException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logError(ErrorCode.METHOD_NOT_ALLOWED, ex, request)
+        return ResponseEntity.status(ErrorCode.METHOD_NOT_ALLOWED.status)
+            .headers(ex.headers)
+            .body(ErrorResponseFactory.of(ErrorCode.METHOD_NOT_ALLOWED))
+    }
+
+    // 지원 형식 안내를 위해 Accept 헤더 포함
+    @ExceptionHandler(HttpMediaTypeNotSupportedException::class)
+    fun handleMediaTypeNotSupported(
+        ex: HttpMediaTypeNotSupportedException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        logError(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ex, request)
+        return ResponseEntity.status(ErrorCode.UNSUPPORTED_MEDIA_TYPE.status)
+            .headers(ex.headers)
+            .body(ErrorResponseFactory.of(ErrorCode.UNSUPPORTED_MEDIA_TYPE))
     }
 
     @ExceptionHandler(Exception::class)
