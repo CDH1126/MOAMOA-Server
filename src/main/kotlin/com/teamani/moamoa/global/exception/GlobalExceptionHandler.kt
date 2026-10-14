@@ -11,6 +11,8 @@ import org.springframework.validation.method.ParameterErrors
 import org.springframework.web.HttpMediaTypeNotSupportedException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingRequestHeaderException
+import org.springframework.web.bind.MissingRequestValueException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -119,9 +121,9 @@ class GlobalExceptionHandler {
             .body(ErrorResponseFactory.of(ErrorCode.INPUT_ERROR))
     }
 
-    @ExceptionHandler(MissingServletRequestParameterException::class)
-    fun handleMissingParameter(
-        ex: MissingServletRequestParameterException,
+    @ExceptionHandler(MissingServletRequestParameterException::class, MissingRequestHeaderException::class)
+    fun handleMissingValue(
+        ex: MissingRequestValueException,
         request: HttpServletRequest,
     ): ResponseEntity<ErrorResponse> {
         logError(ErrorCode.MISSING_REQUIRED_VALUE, ex, request)
