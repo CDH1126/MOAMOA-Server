@@ -1,8 +1,11 @@
 package com.teamani.moamoa.notice.service
 
+import com.teamani.moamoa.global.exception.ApiException
+import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.notice.dto.NoticeCreateRequest
 import com.teamani.moamoa.notice.entity.Notice
 import com.teamani.moamoa.notice.repository.NoticeRepository
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -10,6 +13,7 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.clearInvocations
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -145,6 +149,51 @@ class NoticeServiceTests : BehaviorSpec({
                 response.size shouldBe 20
                 response.hasNext shouldBe false
                 verify(noticeRepository).findAllByMeetingId(meetingId, pageable)
+            }
+        }
+    }
+
+    Given("존재하지 않는 공지사항 식별자가 주어졌을 때") {
+        val repository: NoticeRepository = mock(NoticeRepository::class.java)
+        val service = NoticeService(repository)
+        val meetingId = 1L
+        val noticeId = 999L
+
+        `when`(repository.findById(noticeId)).thenReturn(Optional.empty())
+
+        When("deleteNotice 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                service.deleteNotice(meetingId, noticeId, 1L)
+            }
+
+            Then("NOT_FOUND 예외가 발생하고 삭제는 호출되지 않는다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
+                verify(repository, never()).delete(any(Notice::class.java))
+            }
+        }
+    }
+    Given("다른 모임에 속한 공지사항 식별자가 주어졌을 때") {
+        val repository: NoticeRepository = mock(NoticeRepository::class.java)
+        val service = NoticeService(repository)
+        val noticeId = 30L
+        val otherMeetingNotice = Notice(
+            id = noticeId,
+            meetingId = 2L,
+            membersId = 1L,
+            title = "다른 모임 공지",
+            content = "다른 모임 공지 내용"
+        )
+
+        `when`(repository.findById(noticeId)).thenReturn(Optional.of(otherMeetingNotice))
+
+        When("deleteNotice 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                service.deleteNotice(1L, noticeId, 1L)
+            }
+
+            Then("NOT_FOUND 예외가 발생하고 삭제는 호출되지 않는다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
+                verify(repository, never()).delete(any(Notice::class.java))
             }
         }
     }
