@@ -451,7 +451,8 @@ src/
 - Kotlin 표준 라이브러리는 Kotlin Gradle Plugin이 추가합니다. `kotlin-reflect`와 Jackson 3 Kotlin 모듈은 직접 선언합니다.
 - Spring Boot dependency management로 관리되는 라이브러리에는 개별 버전을 지정하지 않습니다. springdoc만 `3.1.1`을 명시합니다.
 - `.gitignore`는 Gradle·Kotlin 빌드 캐시, 빌드 산출물, IntelliJ 파일과 `.env`를 제외합니다. Gradle Wrapper는 저장소에 포함합니다.
-- 테스트용 `test` Spring Profile을 사용합니다. 별도 CI/CD, Docker 구성은 없습니다.
+- 테스트용 `test` Spring Profile을 사용합니다. `main` 대상 PR에서는 GitHub Actions의 `Gradle Test`가 `./gradlew test --no-daemon`으로 전체 테스트를 검증합니다.
+- Docker 및 배포 구성은 없습니다.
 
 TODO: 운영 DB 인프라 및 배포 환경은 해당 요구사항이 확정되는 Issue에서 결정하고 문서화합니다.
 
