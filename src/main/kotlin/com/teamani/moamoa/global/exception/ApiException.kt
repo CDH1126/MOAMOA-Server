@@ -4,5 +4,5 @@ package com.teamani.moamoa.global.exception
 // HTTP 응답 변환은 GlobalExceptionHandler에서 처리
 open class ApiException(
     val errorCode: ErrorCode,
-    override val message: String? = errorCode.message,
+    message: String? = errorCode.message,
 ) : RuntimeException(message)
