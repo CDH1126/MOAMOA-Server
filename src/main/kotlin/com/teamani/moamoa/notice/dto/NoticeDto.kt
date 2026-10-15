@@ -16,3 +16,7 @@ data class NoticeCreateResponse(
     val noticeId: Long,
     val title: String
 )
+
+data class NoticeDeleteResponse(
+    val noticeId: Long
+)
