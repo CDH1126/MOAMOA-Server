@@ -171,6 +171,16 @@ class NoticeServiceTests : BehaviorSpec({
                 verify(repository, never()).delete(any(Notice::class.java))
             }
         }
+
+        When("getNoticeDetail 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                service.getNoticeDetail(meetingId, noticeId, 1L)
+            }
+
+            Then("NOT_FOUND 예외가 발생한다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
+            }
+        }
     }
     Given("다른 모임에 속한 공지사항 식별자가 주어졌을 때") {
         val repository: NoticeRepository = mock(NoticeRepository::class.java)
@@ -194,6 +204,16 @@ class NoticeServiceTests : BehaviorSpec({
             Then("NOT_FOUND 예외가 발생하고 삭제는 호출되지 않는다") {
                 exception.errorCode shouldBe ErrorCode.NOT_FOUND
                 verify(repository, never()).delete(any(Notice::class.java))
+            }
+        }
+
+        When("getNoticeDetail 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                service.getNoticeDetail(1L, noticeId, 1L)
+            }
+
+            Then("NOT_FOUND 예외가 발생한다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
             }
         }
     }
