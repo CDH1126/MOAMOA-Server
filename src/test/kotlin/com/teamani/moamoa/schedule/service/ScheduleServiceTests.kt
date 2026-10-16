@@ -1,5 +1,7 @@
 package com.teamani.moamoa.schedule.service
 
+import com.teamani.moamoa.global.exception.ApiException
+import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.entity.Schedule
@@ -16,8 +18,6 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
-import org.springframework.http.HttpStatus
-import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
@@ -118,12 +118,12 @@ class ScheduleServiceTests : BehaviorSpec({
         val to = LocalDate.parse("2026-10-01")
 
         When("getSchedules 메서드를 호출하면") {
-            val exception = shouldThrow<ResponseStatusException> {
+            val exception = shouldThrow<ApiException> {
                 scheduleService.getSchedules(1L, 1L, from, to)
             }
 
-            Then("400 Bad Request 예외가 발생하고 일정을 조회하지 않는다") {
-                exception.statusCode shouldBe HttpStatus.BAD_REQUEST
+            Then("VALIDATION_ERROR 예외가 발생하고 일정을 조회하지 않는다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
                 verifyNoInteractions(scheduleRepository)
             }
         }
@@ -162,12 +162,12 @@ class ScheduleServiceTests : BehaviorSpec({
 
     Given("없거나 다른 모임에 속한 일정 ID가 주어졌을 때") {
         When("getSchedule 메서드를 호출하면") {
-            val exception = shouldThrow<ResponseStatusException> {
+            val exception = shouldThrow<ApiException> {
                 scheduleService.getSchedule(1L, 1L, 999L)
             }
 
-            Then("404 Not Found 예외가 발생한다") {
-                exception.statusCode shouldBe HttpStatus.NOT_FOUND
+            Then("NOT_FOUND 예외가 발생한다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
             }
         }
     }
@@ -226,12 +226,12 @@ class ScheduleServiceTests : BehaviorSpec({
         When("기존 시작 일시보다 이전인 종료 일시만 보내면") {
             val schedule = stubSchedule()
             val request = ScheduleUpdateRequest(endAt = OffsetDateTime.parse("2026-10-11T06:00:00+09:00"))
-            val exception = shouldThrow<ResponseStatusException> {
+            val exception = shouldThrow<ApiException> {
                 scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)
             }
 
-            Then("400 Bad Request 예외가 발생하고 일정은 변경되지 않는다") {
-                exception.statusCode shouldBe HttpStatus.BAD_REQUEST
+            Then("VALIDATION_ERROR 예외가 발생하고 일정은 변경되지 않는다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
                 schedule.endedAt.toString() shouldBe "2026-10-11T09:00+09:00"
             }
         }
@@ -239,24 +239,24 @@ class ScheduleServiceTests : BehaviorSpec({
         When("기존 종료 일시보다 이후인 시작 일시만 보내면") {
             stubSchedule()
             val request = ScheduleUpdateRequest(startAt = OffsetDateTime.parse("2026-10-11T10:00:00+09:00"))
-            val exception = shouldThrow<ResponseStatusException> {
+            val exception = shouldThrow<ApiException> {
                 scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)
             }
 
-            Then("400 Bad Request 예외가 발생한다") {
-                exception.statusCode shouldBe HttpStatus.BAD_REQUEST
+            Then("VALIDATION_ERROR 예외가 발생한다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
             }
         }
     }
 
     Given("없거나 다른 모임에 속한 일정을 수정하려 할 때") {
         When("updateSchedule 메서드를 호출하면") {
-            val exception = shouldThrow<ResponseStatusException> {
+            val exception = shouldThrow<ApiException> {
                 scheduleService.updateSchedule(1L, 1L, 999L, ScheduleUpdateRequest(title = "변경된 제목"))
             }
 
-            Then("404 Not Found 예외가 발생한다") {
-                exception.statusCode shouldBe HttpStatus.NOT_FOUND
+            Then("NOT_FOUND 예외가 발생한다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
             }
         }
     }
@@ -285,12 +285,12 @@ class ScheduleServiceTests : BehaviorSpec({
 
     Given("없거나 다른 모임에 속한 일정을 삭제하려 할 때") {
         When("deleteSchedule 메서드를 호출하면") {
-            val exception = shouldThrow<ResponseStatusException> {
+            val exception = shouldThrow<ApiException> {
                 scheduleService.deleteSchedule(1L, 1L, 999L)
             }
 
-            Then("404 Not Found 예외가 발생하고 아무것도 삭제하지 않는다") {
-                exception.statusCode shouldBe HttpStatus.NOT_FOUND
+            Then("NOT_FOUND 예외가 발생하고 아무것도 삭제하지 않는다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
                 verify(scheduleRepository, never()).delete(any(Schedule::class.java))
             }
         }

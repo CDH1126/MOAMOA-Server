@@ -1,5 +1,6 @@
 package com.teamani.moamoa.schedule.controller
 
+import com.teamani.moamoa.global.response.CommonResponse
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDeleteResponse
@@ -21,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
-import java.time.OffsetDateTime
 
 @RestController
 @RequestMapping("/v1/meetings/{meetingId}/schedules")
@@ -33,20 +33,12 @@ class ScheduleController(
     fun createSchedule(
         @PathVariable meetingId: Long,
         @Valid @RequestBody request: ScheduleCreateRequest
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<ScheduleCreateResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleCreateResponse = scheduleService.createSchedule(meetingId, currentUserId, request)
 
-        // API 명세서 Envelope 포맷 규격: { success, data, error, timestamp }
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.status(HttpStatus.CREATED).body(CommonResponse(data = response))
     }
 
     @GetMapping
@@ -54,38 +46,24 @@ class ScheduleController(
         @PathVariable meetingId: Long,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<ScheduleListResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleListResponse = scheduleService.getSchedules(meetingId, currentUserId, from, to)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 
     @GetMapping("/{scheduleId}")
     fun getSchedule(
         @PathVariable meetingId: Long,
         @PathVariable scheduleId: Long
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<ScheduleDetailResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleDetailResponse = scheduleService.getSchedule(meetingId, currentUserId, scheduleId)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 
     @PatchMapping("/{scheduleId}")
@@ -93,38 +71,24 @@ class ScheduleController(
         @PathVariable meetingId: Long,
         @PathVariable scheduleId: Long,
         @Valid @RequestBody request: ScheduleUpdateRequest
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<ScheduleDetailResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleDetailResponse =
             scheduleService.updateSchedule(meetingId, currentUserId, scheduleId, request)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 
     @DeleteMapping("/{scheduleId}")
     fun deleteSchedule(
         @PathVariable meetingId: Long,
         @PathVariable scheduleId: Long
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<ScheduleDeleteResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: ScheduleDeleteResponse = scheduleService.deleteSchedule(meetingId, currentUserId, scheduleId)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 }

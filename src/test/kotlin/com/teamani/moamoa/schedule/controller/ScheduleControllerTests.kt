@@ -1,5 +1,8 @@
 package com.teamani.moamoa.schedule.controller
 
+import com.teamani.moamoa.global.exception.ApiException
+import com.teamani.moamoa.global.exception.ErrorCode
+import com.teamani.moamoa.global.exception.GlobalExceptionHandler
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDeleteResponse
@@ -11,7 +14,6 @@ import com.teamani.moamoa.schedule.service.ScheduleService
 import io.kotest.core.spec.style.BehaviorSpec
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -21,7 +23,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.time.OffsetDateTime
 
@@ -29,7 +30,9 @@ class ScheduleControllerTests : BehaviorSpec({
 
     val scheduleService: ScheduleService = mock(ScheduleService::class.java)
     val scheduleController = ScheduleController(scheduleService)
-    val mockMvc: MockMvc = MockMvcBuilders.standaloneSetup(scheduleController).build()
+    val mockMvc: MockMvc = MockMvcBuilders.standaloneSetup(scheduleController)
+        .setControllerAdvice(GlobalExceptionHandler())
+        .build()
 
     // 요청 일시는 역직렬화 시 오프셋이 바뀌어도 equals가 유지되도록 UTC(Z)로 작성
     Given("유효한 일정 생성 요청(POST /v1/meetings/{meetingId}/schedules)이 주어졌을 때") {
@@ -172,7 +175,7 @@ class ScheduleControllerTests : BehaviorSpec({
         val to = LocalDate.parse("2026-10-01")
 
         `when`(scheduleService.getSchedules(meetingId, 1L, from, to))
-            .thenThrow(ResponseStatusException(HttpStatus.BAD_REQUEST, "조회 시작일은 종료일보다 이후일 수 없습니다."))
+            .thenThrow(ApiException(ErrorCode.VALIDATION_ERROR, "조회 시작일은 종료일보다 이후일 수 없습니다."))
 
         When("목록 API를 호출하면") {
             val resultActions = mockMvc.perform(
@@ -181,8 +184,11 @@ class ScheduleControllerTests : BehaviorSpec({
                     .param("to", "2026-10-01")
             )
 
-            Then("400 Bad Request를 반환한다") {
-                resultActions.andExpect(status().isBadRequest)
+            Then("400 Bad Request와 VALIDATION_ERROR 공통 에러 응답을 반환한다") {
+                resultActions
+                    .andExpect(status().isBadRequest)
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
             }
         }
     }
@@ -225,13 +231,16 @@ class ScheduleControllerTests : BehaviorSpec({
         val scheduleId = 999L
 
         `when`(scheduleService.getSchedule(meetingId, 1L, scheduleId))
-            .thenThrow(ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."))
+            .thenThrow(ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."))
 
         When("상세 API를 호출하면") {
             val resultActions = mockMvc.perform(get("/v1/meetings/$meetingId/schedules/$scheduleId"))
 
-            Then("404 Not Found를 반환한다") {
-                resultActions.andExpect(status().isNotFound)
+            Then("404 Not Found와 NOT_FOUND 공통 에러 응답을 반환한다") {
+                resultActions
+                    .andExpect(status().isNotFound)
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
             }
         }
     }
@@ -315,7 +324,7 @@ class ScheduleControllerTests : BehaviorSpec({
         val request = ScheduleUpdateRequest(endAt = OffsetDateTime.parse("2026-10-10T20:00:00Z"))
 
         `when`(scheduleService.updateSchedule(1L, 1L, 20L, request))
-            .thenThrow(ResponseStatusException(HttpStatus.BAD_REQUEST, "종료 일시는 시작 일시 이후여야 합니다."))
+            .thenThrow(ApiException(ErrorCode.VALIDATION_ERROR, "종료 일시는 시작 일시 이후여야 합니다."))
 
         When("수정 API를 호출하면") {
             val resultActions = mockMvc.perform(
@@ -334,7 +343,7 @@ class ScheduleControllerTests : BehaviorSpec({
         val request = ScheduleUpdateRequest(title = "변경된 제목")
 
         `when`(scheduleService.updateSchedule(1L, 1L, 999L, request))
-            .thenThrow(ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."))
+            .thenThrow(ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."))
 
         When("수정 API를 호출하면") {
             val resultActions = mockMvc.perform(
@@ -372,7 +381,7 @@ class ScheduleControllerTests : BehaviorSpec({
 
     Given("존재하지 않는 일정의 삭제 요청이 주어졌을 때") {
         `when`(scheduleService.deleteSchedule(1L, 1L, 999L))
-            .thenThrow(ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."))
+            .thenThrow(ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."))
 
         When("삭제 API를 호출하면") {
             val resultActions = mockMvc.perform(delete("/v1/meetings/1/schedules/999"))

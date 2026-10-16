@@ -1,5 +1,7 @@
 package com.teamani.moamoa.schedule.service
 
+import com.teamani.moamoa.global.exception.ApiException
+import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleCreateResponse
 import com.teamani.moamoa.schedule.dto.ScheduleDeleteResponse
@@ -9,10 +11,8 @@ import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
 import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.entity.Schedule
 import com.teamani.moamoa.schedule.repository.ScheduleRepository
-import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -51,7 +51,7 @@ class ScheduleService(
         validateMember(meetingId, userId)
 
         if (from.isAfter(to)) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "조회 시작일은 종료일보다 이후일 수 없습니다.")
+            throw ApiException(ErrorCode.VALIDATION_ERROR, "조회 시작일은 종료일보다 이후일 수 없습니다.")
         }
 
         // from, to 모두 포함하도록 KST 기준 [from 00:00, to 다음 날 00:00) 범위로 조회
@@ -80,7 +80,7 @@ class ScheduleService(
         validateMember(meetingId, userId)
 
         val schedule = scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다.")
+            ?: throw ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.")
 
         return toDetailResponse(schedule)
     }
@@ -96,13 +96,13 @@ class ScheduleService(
         validateAdmin(meetingId, userId)
 
         val schedule = scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다.")
+            ?: throw ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.")
 
         // 한쪽만 보내도 수정 결과 기준으로 종료 일시가 시작 일시보다 이전이면 안 됨
         val startsAt = request.startAt ?: schedule.startsAt
         val endedAt = request.endAt ?: schedule.endedAt
         if (endedAt != null && endedAt.isBefore(startsAt)) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "종료 일시는 시작 일시 이후여야 합니다.")
+            throw ApiException(ErrorCode.VALIDATION_ERROR, "종료 일시는 시작 일시 이후여야 합니다.")
         }
 
         // 변경 감지(Dirty Checking)로 트랜잭션 종료 시 반영
@@ -117,7 +117,7 @@ class ScheduleService(
         validateAdmin(meetingId, userId)
 
         val schedule = scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다.")
+            ?: throw ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.")
 
         scheduleRepository.delete(schedule)
 
