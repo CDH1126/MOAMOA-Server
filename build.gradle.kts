@@ -32,6 +32,7 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
