@@ -1,0 +1,41 @@
+package com.teamani.moamoa.member.controller
+
+import com.teamani.moamoa.global.response.CommonResponse
+import com.teamani.moamoa.member.dto.MemberLeaveResponse
+import com.teamani.moamoa.member.dto.MemberListResponse
+import com.teamani.moamoa.member.service.MemberService
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+@RequestMapping("/v1/meetings/{meetingId}/members")
+class MemberController(
+    private val memberService: MemberService
+) {
+
+    @GetMapping
+    fun getMembers(
+        @PathVariable meetingId: Long
+    ): ResponseEntity<CommonResponse<MemberListResponse>> {
+        val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
+
+        val response: MemberListResponse = memberService.getMembers(meetingId, currentUserId)
+
+        return ResponseEntity.ok(CommonResponse(data = response))
+    }
+
+    @DeleteMapping("/me")
+    fun leaveMeeting(
+        @PathVariable meetingId: Long
+    ): ResponseEntity<CommonResponse<MemberLeaveResponse>> {
+        val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
+
+        val response: MemberLeaveResponse = memberService.leaveMeeting(meetingId, currentUserId)
+
+        return ResponseEntity.ok(CommonResponse(data = response))
+    }
+}
