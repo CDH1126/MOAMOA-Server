@@ -153,6 +153,54 @@ class NoticeServiceTests : BehaviorSpec({
         }
     }
 
+    Given("공지 목록 조회의 페이징 경계 상황이 주어졌을 때") {
+        val meetingId = 1L
+        val sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
+
+        fun notices(vararg ids: Long) = ids.map { id ->
+            Notice(id = id, meetingId = meetingId, membersId = 1L, title = "공지 $id", content = "내용")
+        }
+
+        When("공지가 하나도 없으면") {
+            val pageable = PageRequest.of(0, 20, sort)
+            `when`(noticeRepository.findAllByMeetingId(meetingId, pageable))
+                .thenReturn(PageImpl(emptyList(), pageable, 0L))
+            val response = noticeService.getNotices(meetingId, 0, 20, 1L)
+
+            Then("빈 목록과 hasNext=false를 반환한다") {
+                response.notices shouldBe emptyList()
+                response.hasNext shouldBe false
+            }
+        }
+
+        When("다음 페이지가 남아 있으면 (전체 5개, page=0, size=2)") {
+            val pageable = PageRequest.of(0, 2, sort)
+            `when`(noticeRepository.findAllByMeetingId(meetingId, pageable))
+                .thenReturn(PageImpl(notices(5L, 4L), pageable, 5L))
+            val response = noticeService.getNotices(meetingId, 0, 2, 1L)
+
+            Then("요청한 크기만큼 반환하고 hasNext=true를 반환한다") {
+                response.notices.map { it.noticeId } shouldBe listOf(5L, 4L)
+                response.page shouldBe 0
+                response.size shouldBe 2
+                response.hasNext shouldBe true
+            }
+        }
+
+        When("마지막 페이지를 조회하면 (전체 5개, page=2, size=2)") {
+            val pageable = PageRequest.of(2, 2, sort)
+            `when`(noticeRepository.findAllByMeetingId(meetingId, pageable))
+                .thenReturn(PageImpl(notices(1L), pageable, 5L))
+            val response = noticeService.getNotices(meetingId, 2, 2, 1L)
+
+            Then("남은 공지만 반환하고 hasNext=false를 반환한다") {
+                response.notices.map { it.noticeId } shouldBe listOf(1L)
+                response.page shouldBe 2
+                response.hasNext shouldBe false
+            }
+        }
+    }
+
     Given("존재하지 않는 공지사항 식별자가 주어졌을 때") {
         val repository: NoticeRepository = mock(NoticeRepository::class.java)
         val service = NoticeService(repository)
