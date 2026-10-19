@@ -104,7 +104,7 @@ class ScheduleServiceTests : BehaviorSpec({
         )
 
         `when`(
-            scheduleRepository.findAllByMeetingIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(
+            scheduleRepository.findAllOverlapping(
                 meetingId, rangeStart, rangeEnd
             )
         ).thenReturn(listOf(schedule))

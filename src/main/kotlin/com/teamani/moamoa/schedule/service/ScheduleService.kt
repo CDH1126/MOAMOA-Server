@@ -58,8 +58,8 @@ class ScheduleService(
             throw ApiException(ErrorCode.VALIDATION_ERROR, "조회 시작일은 종료일보다 이후일 수 없습니다.")
         }
 
-        // from, to 모두 포함하도록 KST 기준 [from 00:00, to 다음 날 00:00) 범위로 조회
-        val schedules = scheduleRepository.findAllByMeetingIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(
+        // from, to 모두 포함하도록 KST 기준 [from 00:00, to 다음 날 00:00) 범위와 겹치는 일정을 조회
+        val schedules = scheduleRepository.findAllOverlapping(
             meetingId,
             from.atStartOfDay().atOffset(KST),
             to.plusDays(1).atStartOfDay().atOffset(KST)
