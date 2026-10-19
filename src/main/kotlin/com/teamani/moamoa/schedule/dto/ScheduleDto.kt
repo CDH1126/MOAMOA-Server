@@ -1,13 +1,12 @@
 package com.teamani.moamoa.schedule.dto
 
-import com.fasterxml.jackson.annotation.JsonIgnore
-import jakarta.validation.constraints.AssertTrue
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import java.time.OffsetDateTime
 
+// 종료 일시가 시작 일시 이후인지는 수정 API와 같은 규칙으로 Service에서 검증
 data class ScheduleCreateRequest(
     @field:NotBlank(message = "일정 제목은 필수입니다.")
     @field:Size(max = 100, message = "제목은 100자 이하여야 합니다.")
@@ -22,13 +21,7 @@ data class ScheduleCreateRequest(
 
     @field:Size(max = 255, message = "장소는 255자 이하여야 합니다.")
     val location: String? = null
-) {
-    // 종료 일시가 있으면 시작 일시보다 이전일 수 없음
-    @get:JsonIgnore
-    @get:AssertTrue(message = "종료 일시는 시작 일시 이후여야 합니다.")
-    val isEndAtAfterStartAt: Boolean
-        get() = startAt == null || endAt == null || !endAt.isBefore(startAt)
-}
+)
 
 data class ScheduleCreateResponse(
     val scheduleId: Long,

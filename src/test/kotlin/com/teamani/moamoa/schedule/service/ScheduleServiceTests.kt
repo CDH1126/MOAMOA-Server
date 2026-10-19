@@ -66,6 +66,25 @@ class ScheduleServiceTests : BehaviorSpec({
         }
     }
 
+    Given("종료 일시가 시작 일시보다 이전인 일정 생성 요청 데이터가 주어졌을 때") {
+        val request = ScheduleCreateRequest(
+            title = "10월 정기 러닝",
+            startAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00"),
+            endAt = OffsetDateTime.parse("2026-10-11T06:00:00+09:00")
+        )
+
+        When("createSchedule 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                scheduleService.createSchedule(1L, 1L, request)
+            }
+
+            Then("VALIDATION_ERROR 예외가 발생하고 일정은 저장되지 않는다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+                verify(scheduleRepository, never()).save(any(Schedule::class.java))
+            }
+        }
+    }
+
     Given("모임 일정 목록 조회 기간이 주어졌을 때") {
         val meetingId = 1L
         val userId = 1L

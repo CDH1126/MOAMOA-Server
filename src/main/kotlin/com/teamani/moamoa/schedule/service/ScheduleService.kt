@@ -14,6 +14,7 @@ import com.teamani.moamoa.schedule.repository.ScheduleRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 @Service
@@ -27,11 +28,14 @@ class ScheduleService(
         validateMeeting(meetingId)
         validateAdmin(meetingId, userId)
 
+        val startsAt = requireNotNull(request.startAt) { "시작 일시는 필수입니다." }
+        validatePeriod(startsAt, request.endAt)
+
         val schedule = Schedule(
             meetingId = meetingId,
             title = requireNotNull(request.title) { "제목은 필수입니다." },
             description = request.description,
-            startsAt = requireNotNull(request.startAt) { "시작 일시는 필수입니다." },
+            startsAt = startsAt,
             endedAt = request.endAt,
             location = request.location
         )
@@ -99,11 +103,7 @@ class ScheduleService(
             ?: throw ApiException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.")
 
         // 한쪽만 보내도 수정 결과 기준으로 종료 일시가 시작 일시보다 이전이면 안 됨
-        val startsAt = request.startAt ?: schedule.startsAt
-        val endedAt = request.endAt ?: schedule.endedAt
-        if (endedAt != null && endedAt.isBefore(startsAt)) {
-            throw ApiException(ErrorCode.VALIDATION_ERROR, "종료 일시는 시작 일시 이후여야 합니다.")
-        }
+        validatePeriod(request.startAt ?: schedule.startsAt, request.endAt ?: schedule.endedAt)
 
         // 변경 감지(Dirty Checking)로 트랜잭션 종료 시 반영
         schedule.update(request.title, request.description, request.startAt, request.endAt, request.location)
@@ -122,6 +122,13 @@ class ScheduleService(
         scheduleRepository.delete(schedule)
 
         return ScheduleDeleteResponse(scheduleId = scheduleId)
+    }
+
+    // 생성·수정 공통: 종료 일시가 있으면 시작 일시보다 이전일 수 없음
+    private fun validatePeriod(startsAt: OffsetDateTime, endedAt: OffsetDateTime?) {
+        if (endedAt != null && endedAt.isBefore(startsAt)) {
+            throw ApiException(ErrorCode.VALIDATION_ERROR, "종료 일시는 시작 일시 이후여야 합니다.")
+        }
     }
 
     private fun toDetailResponse(schedule: Schedule): ScheduleDetailResponse =
