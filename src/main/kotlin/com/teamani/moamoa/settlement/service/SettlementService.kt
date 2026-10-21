@@ -3,7 +3,10 @@ package com.teamani.moamoa.settlement.service
 import com.teamani.moamoa.global.exception.ApiException
 import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.settlement.dto.MyPaymentResponse
+import com.teamani.moamoa.settlement.dto.PaymentApproveResponse
+import com.teamani.moamoa.settlement.dto.PaymentRejectResponse
 import com.teamani.moamoa.settlement.dto.PaymentResponse
+import com.teamani.moamoa.settlement.dto.PaymentSubmitResponse
 import com.teamani.moamoa.settlement.dto.PaymentSummaryResponse
 import com.teamani.moamoa.settlement.dto.SettlementCreateRequest
 import com.teamani.moamoa.settlement.dto.SettlementCreateResponse
@@ -17,6 +20,7 @@ import com.teamani.moamoa.settlement.repository.SettlementMemberRepository
 import com.teamani.moamoa.settlement.repository.SettlementRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 @Service
@@ -138,6 +142,92 @@ class SettlementService(
             // 구성원 전원의 납부 현황은 ADMIN에게만 제공
             payments = if (isAdmin(meetingId, memberId)) payments.map { toPaymentResponse(it) } else null
         )
+    }
+
+    @Transactional
+    fun submitPayment(meetingId: Long, memberId: Long, settlementId: Long): PaymentSubmitResponse {
+        validateMeeting(meetingId)
+        validateMember(meetingId, memberId)
+
+        findSettlement(meetingId, settlementId)
+        val payment = settlementMemberRepository.findBySettlementIdAndMemberId(settlementId, memberId)
+            ?: throw ApiException(ErrorCode.FORBIDDEN, "정산 대상 구성원만 납부 완료를 제출할 수 있습니다.")
+        if (payment.status != PaymentStatus.UNPAID) {
+            throw ApiException(ErrorCode.CONFLICT, "이미 납부 완료를 제출했거나 완납한 정산입니다.")
+        }
+
+        // 변경 감지(Dirty Checking)로 트랜잭션 종료 시 반영
+        val submittedAt = OffsetDateTime.now()
+        payment.submit(submittedAt)
+
+        return PaymentSubmitResponse(
+            paymentId = checkNotNull(payment.id) { "납부 항목 식별자가 없습니다." },
+            status = payment.status,
+            submittedAt = submittedAt.withOffsetSameInstant(KST)
+        )
+    }
+
+    @Transactional
+    fun approvePayment(meetingId: Long, memberId: Long, settlementId: Long, paymentId: Long): PaymentApproveResponse {
+        validateMeeting(meetingId)
+        validateAdmin(meetingId, memberId)
+
+        val settlement = findSettlement(meetingId, settlementId)
+        val payment = findPendingPayment(settlementId, paymentId, "확인 대기 상태의 납부만 승인할 수 있습니다.")
+
+        val confirmedAt = OffsetDateTime.now()
+        payment.approve(confirmedAt)
+
+        // 대상자 전원이 완납하면 정산 완료
+        val payments = settlementMemberRepository.findAllBySettlementIdOrderByIdAsc(settlementId)
+        if (payments.all { it.status == PaymentStatus.PAID }) {
+            settlement.complete()
+        }
+
+        return PaymentApproveResponse(
+            paymentId = paymentId,
+            status = payment.status,
+            confirmedAt = confirmedAt.withOffsetSameInstant(KST)
+        )
+    }
+
+    @Transactional
+    fun rejectPayment(
+        meetingId: Long,
+        memberId: Long,
+        settlementId: Long,
+        paymentId: Long,
+        reason: String?
+    ): PaymentRejectResponse {
+        validateMeeting(meetingId)
+        validateAdmin(meetingId, memberId)
+
+        findSettlement(meetingId, settlementId)
+        val payment = findPendingPayment(settlementId, paymentId, "확인 대기 상태의 납부만 반려할 수 있습니다.")
+
+        payment.reject(reason)
+
+        // TODO: 푸시 알림 - 해당 구성원에게 반려 안내 알림 발송
+
+        return PaymentRejectResponse(
+            paymentId = paymentId,
+            status = payment.status,
+            rejectionReason = payment.rejectionReason
+        )
+    }
+
+    private fun findSettlement(meetingId: Long, settlementId: Long): Settlement =
+        settlementRepository.findByIdAndMeetingId(settlementId, meetingId)
+            ?: throw ApiException(ErrorCode.NOT_FOUND, "정산을 찾을 수 없습니다.")
+
+    // 승인·반려는 확인 대기(PENDING) 상태의 납부 항목만 가능
+    private fun findPendingPayment(settlementId: Long, paymentId: Long, conflictMessage: String): SettlementMember {
+        val payment = settlementMemberRepository.findByIdAndSettlementId(paymentId, settlementId)
+            ?: throw ApiException(ErrorCode.NOT_FOUND, "납부 항목을 찾을 수 없습니다.")
+        if (payment.status != PaymentStatus.PENDING) {
+            throw ApiException(ErrorCode.CONFLICT, conflictMessage)
+        }
+        return payment
     }
 
     private fun toPaymentResponse(payment: SettlementMember): PaymentResponse =
