@@ -6,12 +6,19 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.OffsetDateTime
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
 
 @Entity
-@Table(name = "meeting")
+@Table(
+    name = "meeting",
+    uniqueConstraints = [
+        // 모임별 초대코드 중복 방지
+        UniqueConstraint(name = Meeting.UK_INVITE_CODE, columnNames = ["invite_code"]),
+    ],
+)
 class Meeting(
     @Column(nullable = false, length = 20)
     var name: String,
@@ -21,7 +28,7 @@ class Meeting(
     var description: String? = null,
 
     // 모임 초대코드 (모임별 고유값)
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     val inviteCode: String,
 
     @Column(nullable = false, updatable = false)
@@ -46,5 +53,10 @@ class Meeting(
     // 종료 일시 기록으로 모임 삭제 처리 (soft delete)
     fun end() {
         endedAt = OffsetDateTime.now()
+    }
+
+    companion object {
+        // 초대코드 충돌 판별에 사용하는 unique 제약 이름
+        const val UK_INVITE_CODE = "uk_meeting_invite_code"
     }
 }

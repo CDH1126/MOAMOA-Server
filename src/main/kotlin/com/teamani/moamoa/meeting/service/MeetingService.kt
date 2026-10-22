@@ -35,13 +35,21 @@ class MeetingService(
 
     @Transactional
     fun createMeeting(userId: Long, request: MeetingCreateRequest): MeetingCreateResponse {
-        val meeting = meetingRepository.save(
-            Meeting(
-                name = requireNotNull(request.name) { "모임명은 필수입니다." },
-                description = request.description,
-                inviteCode = generateInviteCode()
+        val meeting = try {
+            meetingRepository.saveAndFlush(
+                Meeting(
+                    name = requireNotNull(request.name) { "모임명은 필수입니다." },
+                    description = request.description,
+                    inviteCode = generateInviteCode()
+                )
             )
-        )
+        } catch (ex: DataIntegrityViolationException) {
+            // 중복 확인 직후 동시 요청이 같은 초대코드를 먼저 저장한 경우 409 (재시도 없이 클라이언트 재요청)
+            if (!ex.violates(Meeting.UK_INVITE_CODE)) {
+                throw ex
+            }
+            throw ApiException(ErrorCode.CONFLICT, INVITE_CODE_CONFLICT_MESSAGE)
+        }
         val meetingId = checkNotNull(meeting.id) { "모임 식별자가 생성되지 않았습니다." }
 
         // 모임 생성자를 관리자(ADMIN)로 등록
@@ -185,6 +193,7 @@ class MeetingService(
 
     companion object {
         private const val ALREADY_JOINED_MESSAGE = "이미 참여한 모임입니다."
+        private const val INVITE_CODE_CONFLICT_MESSAGE = "초대코드 생성 중 충돌이 발생했습니다. 다시 시도해 주세요."
         private const val INVITE_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         private const val INVITE_CODE_LENGTH = 8
         private const val INVITE_CODE_MAX_ATTEMPTS = 10

@@ -94,6 +94,20 @@ class MeetingControllerTests : BehaviorSpec() {
                     }
                 }
             }
+            When("초대코드 생성이 동시 요청과 충돌하면") {
+                Then("409 CONFLICT를 응답한다") {
+                    `when`(meetingService.createMeeting(USER_ID, MeetingCreateRequest(name = "모아모아")))
+                        .thenThrow(ApiException(ErrorCode.CONFLICT, "초대코드 생성 중 충돌이 발생했습니다. 다시 시도해 주세요."))
+
+                    mockMvc.post("/v1/meetings") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"name":"모아모아"}"""
+                    }.andExpect {
+                        expectError(409, "CONFLICT")
+                        jsonPath("$.error.message") { value("초대코드 생성 중 충돌이 발생했습니다. 다시 시도해 주세요.") }
+                    }
+                }
+            }
         }
 
         Given("내 모임 목록 조회 요청(GET /v1/me/meetings)이 주어졌을 때") {

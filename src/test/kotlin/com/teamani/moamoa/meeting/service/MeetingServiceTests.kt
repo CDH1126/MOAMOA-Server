@@ -52,7 +52,7 @@ class MeetingServiceTests : BehaviorSpec({
 
     // 저장 시 PK가 채워진 엔티티 반환
     fun stubMeetingSave() {
-        `when`(meetingRepository.save(any(Meeting::class.java))).thenAnswer {
+        `when`(meetingRepository.saveAndFlush(any(Meeting::class.java))).thenAnswer {
             val saved = it.getArgument<Meeting>(0)
             Meeting(name = saved.name, description = saved.description, inviteCode = saved.inviteCode, id = meetingId)
         }
@@ -101,6 +101,17 @@ class MeetingServiceTests : BehaviorSpec({
                 meetingService.createMeeting(adminUserId, request)
 
                 verify(meetingRepository, times(2)).existsByInviteCode(anyString())
+            }
+        }
+        When("중복 확인 직후 동시 요청이 같은 초대코드를 먼저 저장하면") {
+            Then("409 CONFLICT 예외로 변환하고 ADMIN 구성원을 저장하지 않는다") {
+                `when`(meetingRepository.saveAndFlush(any(Meeting::class.java)))
+                    .thenThrow(integrityViolation(Meeting.UK_INVITE_CODE))
+
+                shouldThrow<ApiException> {
+                    meetingService.createMeeting(adminUserId, request)
+                }.errorCode shouldBe ErrorCode.CONFLICT
+                verify(memberRepository, never()).save(any(Member::class.java))
             }
         }
     }
