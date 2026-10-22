@@ -183,6 +183,19 @@ class SettlementServiceTests : BehaviorSpec({
         }
     }
 
+    Given("모임에 정산이 하나도 없을 때") {
+        `when`(settlementRepository.findAllByMeetingIdOrderByCreatedAtDescIdDesc(2L)).thenReturn(emptyList())
+
+        When("getSettlements 메서드를 호출하면") {
+            val response = settlementService.getSettlements(2L, 1L)
+
+            Then("빈 목록을 반환하고 납부 항목은 조회하지 않는다") {
+                response.settlements shouldBe emptyList()
+                verify(settlementMemberRepository, never()).findAllBySettlementIdIn(anyList())
+            }
+        }
+    }
+
     Given("정산 상세 조회 대상 정산과 납부 항목이 있을 때") {
         `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement(40L))
         `when`(settlementMemberRepository.findAllBySettlementIdOrderByIdAsc(40L)).thenReturn(
