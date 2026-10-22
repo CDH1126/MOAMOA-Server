@@ -19,6 +19,7 @@ import com.teamani.moamoa.member.entity.Member
 import com.teamani.moamoa.member.entity.MemberRole
 import com.teamani.moamoa.member.repository.MemberRepository
 import com.teamani.moamoa.member.service.MemberService
+import org.hibernate.exception.ConstraintViolationException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -98,7 +99,10 @@ class MeetingService(
         try {
             memberRepository.saveAndFlush(Member(meetingId = meetingId, userId = userId, role = MemberRole.MEMBER))
         } catch (ex: DataIntegrityViolationException) {
-            // 중복 확인 직후 동시 요청으로 unique 제약 위반 시 409 응답
+            // 중복 확인 직후 동시 요청으로 구성원 unique 제약 위반 시에만 409, 그 외 무결성 오류는 그대로 전달
+            if (!ex.violates(Member.UK_MEETING_ID_USER_ID)) {
+                throw ex
+            }
             throw ApiException(ErrorCode.CONFLICT, ALREADY_JOINED_MESSAGE)
         }
 
@@ -159,6 +163,12 @@ class MeetingService(
     private fun findActiveMeeting(meetingId: Long): Meeting =
         meetingRepository.findByIdAndEndedAtIsNull(meetingId)
             ?: throw ApiException(ErrorCode.NOT_FOUND, MemberService.MEETING_NOT_FOUND_MESSAGE)
+
+    // 위반한 제약 이름 확인 (PostgreSQL은 제약 이름 그대로, H2는 "public.<이름> INDEX ..." 형태라 포함 여부로 비교)
+    private fun DataIntegrityViolationException.violates(constraintName: String): Boolean {
+        val violation = cause as? ConstraintViolationException ?: return false
+        return violation.constraintName?.contains(constraintName, ignoreCase = true) == true
+    }
 
     // 대문자·숫자 8자리 초대코드 생성 (기존 코드와 중복 시 재생성)
     private fun generateInviteCode(): String {

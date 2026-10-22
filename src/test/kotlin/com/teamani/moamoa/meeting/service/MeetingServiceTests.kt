@@ -30,7 +30,9 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.reset
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
+import org.hibernate.exception.ConstraintViolationException
 import org.springframework.dao.DataIntegrityViolationException
+import java.sql.SQLException
 import java.util.Optional
 
 class MeetingServiceTests : BehaviorSpec({
@@ -182,11 +184,22 @@ class MeetingServiceTests : BehaviorSpec({
             Then("409 CONFLICT 예외로 변환한다") {
                 `when`(meetingRepository.findByInviteCodeAndEndedAtIsNull("A1B2C3D4")).thenReturn(meeting)
                 `when`(memberRepository.saveAndFlush(any(Member::class.java)))
-                    .thenThrow(DataIntegrityViolationException("uk_member_meeting_id_user_id"))
+                    .thenThrow(integrityViolation(Member.UK_MEETING_ID_USER_ID))
 
                 shouldThrow<ApiException> {
                     meetingService.joinMeeting(outsiderUserId, request)
                 }.errorCode shouldBe ErrorCode.CONFLICT
+            }
+        }
+        When("구성원 unique 제약이 아닌 무결성 제약에 걸리면") {
+            Then("409로 변환하지 않고 예외를 그대로 전달한다") {
+                `when`(meetingRepository.findByInviteCodeAndEndedAtIsNull("A1B2C3D4")).thenReturn(meeting)
+                `when`(memberRepository.saveAndFlush(any(Member::class.java)))
+                    .thenThrow(integrityViolation("fk_member_user_id"))
+
+                shouldThrow<DataIntegrityViolationException> {
+                    meetingService.joinMeeting(outsiderUserId, request)
+                }
             }
         }
     }
@@ -296,3 +309,9 @@ class MeetingServiceTests : BehaviorSpec({
         }
     }
 })
+
+// Spring이 Hibernate 제약 위반 예외를 감싸는 형태 그대로 생성
+private fun integrityViolation(constraintName: String) = DataIntegrityViolationException(
+    "could not execute statement",
+    ConstraintViolationException("could not execute statement", SQLException(), constraintName)
+)
