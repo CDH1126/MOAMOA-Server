@@ -78,6 +78,10 @@ class SettlementService(
         validateMember(meetingId, memberId)
 
         val settlements = settlementRepository.findAllByMeetingIdOrderByCreatedAtDescIdDesc(meetingId)
+        // 정산이 없으면 납부 항목을 조회하지 않음
+        if (settlements.isEmpty()) {
+            return SettlementListResponse(settlements = emptyList())
+        }
         val paymentsBySettlement = settlementMemberRepository
             .findAllBySettlementIdIn(settlements.mapNotNull { it.id })
             .groupBy { it.settlementId }
