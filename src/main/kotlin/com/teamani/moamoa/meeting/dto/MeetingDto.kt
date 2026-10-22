@@ -2,6 +2,7 @@ package com.teamani.moamoa.meeting.dto
 
 import com.teamani.moamoa.member.entity.MemberRole
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import java.util.Optional
@@ -53,13 +54,18 @@ data class MeetingDetailResponse(
     val myRole: MemberRole
 )
 
-// 부분 수정: 보내지 않은 필드는 기존 값 유지
+// 부분 수정: 미전송은 null(유지), null 전송은 Optional.empty, 값 전송은 Optional.of
+// Optional 내부 값 검증은 타입 인자에 작성 (@field로 Optional에 달면 검증기를 찾지 못해 500)
 data class MeetingUpdateRequest(
-    @field:Pattern(regexp = "(?s).*\\S.*", message = "모임명은 공백일 수 없습니다.")
-    @field:Size(max = 20, message = "모임명은 20자 이하여야 합니다.")
-    val name: String? = null,
+    // 필수 항목: null 전송 시 400 VALIDATION_ERROR
+    val name: Optional<
+        @NotNull(message = "모임명은 필수입니다.")
+        @Pattern(regexp = "(?s).*\\S.*", message = "모임명은 공백일 수 없습니다.")
+        @Size(max = 20, message = "모임명은 20자 이하여야 합니다.")
+        String
+    >? = null,
 
-    // 미전송은 null(유지), null 전송은 Optional.empty(비우기), 값 전송은 Optional.of(변경)
+    // 선택 항목: null 전송 시 비우기
     val description: Optional<String>? = null
 )
 

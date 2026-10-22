@@ -221,7 +221,7 @@ class MeetingControllerTests : BehaviorSpec() {
         Given("모임 수정 요청(PATCH /v1/meetings/{meetingId})이 주어졌을 때") {
             When("name만 보내면") {
                 Then("200과 수정된 모임 정보를 반환한다") {
-                    `when`(meetingService.updateMeeting(1L, USER_ID, MeetingUpdateRequest(name = "새 이름")))
+                    `when`(meetingService.updateMeeting(1L, USER_ID, MeetingUpdateRequest(name = Optional.of("새 이름"))))
                         .thenReturn(MeetingUpdateResponse(1L, "새 이름", "모임 소개"))
 
                     mockMvc.patch("/v1/meetings/1") {
@@ -260,6 +260,28 @@ class MeetingControllerTests : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.data.description") { value("새 소개") }
+                    }
+                }
+            }
+            When("name에 null을 보내면") {
+                Then("필수 항목이므로 400 VALIDATION_ERROR를 응답한다") {
+                    mockMvc.patch("/v1/meetings/1") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"name":null}"""
+                    }.andExpect {
+                        expectError(400, "VALIDATION_ERROR")
+                        jsonPath("$.error.details[0].field") { value("name") }
+                    }
+                }
+            }
+            When("name을 20자 초과로 보내면") {
+                Then("400 VALIDATION_ERROR를 응답한다") {
+                    mockMvc.patch("/v1/meetings/1") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"name":"${"가".repeat(21)}"}"""
+                    }.andExpect {
+                        expectError(400, "VALIDATION_ERROR")
+                        jsonPath("$.error.details[0].field") { value("name") }
                     }
                 }
             }

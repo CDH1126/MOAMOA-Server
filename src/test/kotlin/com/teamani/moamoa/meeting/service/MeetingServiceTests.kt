@@ -226,7 +226,7 @@ class MeetingServiceTests : BehaviorSpec({
     Given("모임을 수정할 때") {
         When("ADMIN이 name만 보내면") {
             Then("name만 변경하고 description은 유지한다") {
-                val response = meetingService.updateMeeting(meetingId, adminUserId, MeetingUpdateRequest(name = "새 이름"))
+                val response = meetingService.updateMeeting(meetingId, adminUserId, MeetingUpdateRequest(name = Optional.of("새 이름")))
 
                 response.name shouldBe "새 이름"
                 response.description shouldBe "모임 소개"
@@ -255,7 +255,7 @@ class MeetingServiceTests : BehaviorSpec({
         When("MEMBER가 요청하면") {
             Then("403 FORBIDDEN 예외가 발생하고 모임 정보는 변경되지 않는다") {
                 shouldThrow<ApiException> {
-                    meetingService.updateMeeting(meetingId, memberUserId, MeetingUpdateRequest(name = "새 이름"))
+                    meetingService.updateMeeting(meetingId, memberUserId, MeetingUpdateRequest(name = Optional.of("새 이름")))
                 }.errorCode shouldBe ErrorCode.FORBIDDEN
                 meeting.name shouldBe "모아모아"
             }

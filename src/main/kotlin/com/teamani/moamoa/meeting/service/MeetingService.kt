@@ -23,6 +23,7 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class MeetingService(
@@ -127,7 +128,8 @@ class MeetingService(
         memberService.validateAdmin(meetingId, userId)
         val meeting = findActiveMeeting(meetingId)
 
-        meeting.update(name = request.name, description = request.description)
+        // name의 Optional.empty(null 전송)는 DTO 검증에서 400 처리
+        meeting.update(name = request.name?.getOrNull(), description = request.description)
 
         return MeetingUpdateResponse(
             meetingId = meetingId,
