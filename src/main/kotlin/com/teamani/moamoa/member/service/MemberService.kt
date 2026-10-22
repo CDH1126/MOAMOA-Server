@@ -9,13 +9,16 @@ import com.teamani.moamoa.member.dto.MemberSummaryResponse
 import com.teamani.moamoa.member.entity.Member
 import com.teamani.moamoa.member.entity.MemberRole
 import com.teamani.moamoa.member.repository.MemberRepository
+import com.teamani.moamoa.vote.repository.VoteRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+// 탈퇴 시 투표 응답 삭제는 VoteService가 MemberService를 사용하므로 순환 방지를 위해 VoteRepository 직접 사용
 @Service
 class MemberService(
     private val meetingRepository: MeetingRepository,
-    private val memberRepository: MemberRepository
+    private val memberRepository: MemberRepository,
+    private val voteRepository: VoteRepository
 ) {
 
     // 모임 구성원 권한 검증 (모임 없음 404 → 구성원 아님 403), 다른 도메인에서도 재사용
@@ -61,6 +64,8 @@ class MemberService(
             throw ApiException(ErrorCode.UNPROCESSABLE_ENTITY, "모임 관리자는 탈퇴할 수 없습니다.")
         }
 
+        // 구성원 삭제 전 같은 트랜잭션에서 투표 응답 먼저 삭제
+        voteRepository.deleteAllByMemberId(checkNotNull(member.id) { "구성원 식별자가 없습니다." })
         memberRepository.delete(member)
 
         return MemberLeaveResponse(meetingId = meetingId)
