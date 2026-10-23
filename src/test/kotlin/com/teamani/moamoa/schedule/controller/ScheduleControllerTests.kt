@@ -86,7 +86,8 @@ class ScheduleControllerTests : BehaviorSpec({
         val invalidRequests = mapOf(
             "title 누락" to """{ "startAt": "2026-10-10T22:00:00Z" }""",
             "공백 title" to """{ "title": "   ", "startAt": "2026-10-10T22:00:00Z" }""",
-            "startAt 누락" to """{ "title": "10월 정기 러닝" }"""
+            "startAt 누락" to """{ "title": "10월 정기 러닝" }""",
+            "50자 초과 title" to """{ "title": "${"가".repeat(51)}", "startAt": "2026-10-10T22:00:00Z" }"""
         )
 
         invalidRequests.forEach { (case, requestJson) ->
@@ -323,7 +324,7 @@ class ScheduleControllerTests : BehaviorSpec({
         val invalidRequests = mapOf(
             "공백 title" to """{ "title": "   " }""",
             "빈 문자열 title" to """{ "title": "" }""",
-            "100자 초과 title" to """{ "title": "${"가".repeat(101)}" }""",
+            "50자 초과 title" to """{ "title": "${"가".repeat(51)}" }""",
             "255자 초과 location" to """{ "location": "${"가".repeat(256)}" }"""
         )
 

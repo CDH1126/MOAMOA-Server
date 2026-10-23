@@ -17,8 +17,8 @@ class Schedule(
     @Column(nullable = false)
     val meetingId: Long,
 
-    // 일정명 (최대 100자)
-    @Column(nullable = false, length = 100)
+    // 일정명 (최대 50자)
+    @Column(nullable = false, length = 50)
     var title: String,
 
     // 일정 설명 (API 명세상 선택 값이라 NULL 허용)

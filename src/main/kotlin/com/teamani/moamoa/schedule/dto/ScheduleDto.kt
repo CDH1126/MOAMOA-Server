@@ -9,7 +9,7 @@ import java.time.OffsetDateTime
 // 종료 일시가 시작 일시 이후인지는 수정 API와 같은 규칙으로 Service에서 검증
 data class ScheduleCreateRequest(
     @field:NotBlank(message = "일정 제목은 필수입니다.")
-    @field:Size(max = 100, message = "제목은 100자 이하여야 합니다.")
+    @field:Size(max = 50, message = "제목은 50자 이하여야 합니다.")
     val title: String?,
 
     val description: String? = null,
@@ -44,7 +44,7 @@ data class ScheduleSummaryResponse(
 // 부분 수정: null이면 변경하지 않음 (종료 일시 순서는 기존 값과 합친 결과로 Service에서 검증)
 data class ScheduleUpdateRequest(
     @field:Pattern(regexp = "(?s).*\\S.*", message = "일정 제목은 공백일 수 없습니다.")
-    @field:Size(max = 100, message = "제목은 100자 이하여야 합니다.")
+    @field:Size(max = 50, message = "제목은 50자 이하여야 합니다.")
     val title: String? = null,
 
     val description: String? = null,
