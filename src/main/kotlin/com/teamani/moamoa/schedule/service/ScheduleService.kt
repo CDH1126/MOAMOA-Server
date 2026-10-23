@@ -72,7 +72,8 @@ class ScheduleService(
                     title = schedule.title,
                     startAt = schedule.startsAt.withOffsetSameInstant(KST),
                     endAt = schedule.endedAt?.withOffsetSameInstant(KST),
-                    location = schedule.location
+                    location = schedule.location,
+                    status = schedule.status
                 )
             }
         )
@@ -138,7 +139,8 @@ class ScheduleService(
             description = schedule.description,
             startAt = schedule.startsAt.withOffsetSameInstant(KST),
             endAt = schedule.endedAt?.withOffsetSameInstant(KST),
-            location = schedule.location
+            location = schedule.location,
+            status = schedule.status
         )
 
     // 모임 존재 여부 검증 함수 (추후 Meeting 도메인 연동 자리)

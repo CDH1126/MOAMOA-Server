@@ -5,6 +5,7 @@ import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.entity.Schedule
+import com.teamani.moamoa.schedule.entity.ScheduleStatus
 import com.teamani.moamoa.schedule.repository.ScheduleRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
@@ -100,7 +101,8 @@ class ScheduleServiceTests : BehaviorSpec({
             title = "10월 정기 러닝",
             startsAt = OffsetDateTime.parse("2026-10-10T22:00:00Z"),
             endedAt = OffsetDateTime.parse("2026-10-11T00:00:00Z"),
-            location = "반포 한강공원"
+            location = "반포 한강공원",
+            status = ScheduleStatus.VOTING
         )
 
         `when`(
@@ -120,6 +122,7 @@ class ScheduleServiceTests : BehaviorSpec({
                 summary.startAt.toString() shouldBe "2026-10-11T07:00+09:00"
                 summary.endAt.toString() shouldBe "2026-10-11T09:00+09:00"
                 summary.location shouldBe "반포 한강공원"
+                summary.status shouldBe ScheduleStatus.VOTING
             }
         }
 
@@ -175,6 +178,7 @@ class ScheduleServiceTests : BehaviorSpec({
                 response.startAt.toString() shouldBe "2026-10-11T07:00+09:00"
                 response.endAt.toString() shouldBe "2026-10-11T09:00+09:00"
                 response.location shouldBe "반포 한강공원"
+                response.status shouldBe ScheduleStatus.SCHEDULED
             }
         }
     }

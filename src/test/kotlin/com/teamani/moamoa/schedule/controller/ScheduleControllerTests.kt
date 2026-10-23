@@ -10,6 +10,7 @@ import com.teamani.moamoa.schedule.dto.ScheduleDetailResponse
 import com.teamani.moamoa.schedule.dto.ScheduleListResponse
 import com.teamani.moamoa.schedule.dto.ScheduleSummaryResponse
 import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
+import com.teamani.moamoa.schedule.entity.ScheduleStatus
 import com.teamani.moamoa.schedule.service.ScheduleService
 import io.kotest.core.spec.style.BehaviorSpec
 import org.mockito.Mockito.`when`
@@ -141,7 +142,8 @@ class ScheduleControllerTests : BehaviorSpec({
                     title = "10월 정기 러닝",
                     startAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00"),
                     endAt = OffsetDateTime.parse("2026-10-11T09:00:00+09:00"),
-                    location = "반포 한강공원"
+                    location = "반포 한강공원",
+                    status = ScheduleStatus.VOTING
                 )
             )
         )
@@ -164,6 +166,7 @@ class ScheduleControllerTests : BehaviorSpec({
                     .andExpect(jsonPath("$.data.schedules[0].startAt").exists())
                     .andExpect(jsonPath("$.data.schedules[0].endAt").exists())
                     .andExpect(jsonPath("$.data.schedules[0].location").value("반포 한강공원"))
+                    .andExpect(jsonPath("$.data.schedules[0].status").value("VOTING"))
                     .andExpect(jsonPath("$.error").doesNotExist())
                     .andExpect(jsonPath("$.timestamp").exists())
             }
@@ -225,7 +228,8 @@ class ScheduleControllerTests : BehaviorSpec({
             description = "반포 한강공원 집합",
             startAt = OffsetDateTime.parse("2026-10-11T07:00:00+09:00"),
             endAt = OffsetDateTime.parse("2026-10-11T09:00:00+09:00"),
-            location = "반포 한강공원"
+            location = "반포 한강공원",
+            status = ScheduleStatus.SCHEDULED
         )
 
         `when`(scheduleService.getSchedule(meetingId, 1L, scheduleId)).thenReturn(mockResponse)
@@ -243,6 +247,7 @@ class ScheduleControllerTests : BehaviorSpec({
                     .andExpect(jsonPath("$.data.startAt").exists())
                     .andExpect(jsonPath("$.data.endAt").exists())
                     .andExpect(jsonPath("$.data.location").value("반포 한강공원"))
+                    .andExpect(jsonPath("$.data.status").value("SCHEDULED"))
                     .andExpect(jsonPath("$.error").doesNotExist())
                     .andExpect(jsonPath("$.timestamp").exists())
             }
@@ -292,7 +297,8 @@ class ScheduleControllerTests : BehaviorSpec({
             description = "반포 한강공원 집합",
             startAt = OffsetDateTime.parse("2026-10-11T08:00:00+09:00"),
             endAt = OffsetDateTime.parse("2026-10-11T10:00:00+09:00"),
-            location = "반포 한강공원"
+            location = "반포 한강공원",
+            status = ScheduleStatus.SCHEDULED
         )
 
         `when`(scheduleService.updateSchedule(meetingId, 1L, scheduleId, request)).thenReturn(mockResponse)
@@ -314,6 +320,7 @@ class ScheduleControllerTests : BehaviorSpec({
                     .andExpect(jsonPath("$.data.startAt").exists())
                     .andExpect(jsonPath("$.data.endAt").exists())
                     .andExpect(jsonPath("$.data.location").value("반포 한강공원"))
+                    .andExpect(jsonPath("$.data.status").value("SCHEDULED"))
                     .andExpect(jsonPath("$.error").doesNotExist())
                     .andExpect(jsonPath("$.timestamp").exists())
             }

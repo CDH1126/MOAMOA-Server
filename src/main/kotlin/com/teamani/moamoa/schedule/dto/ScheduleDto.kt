@@ -1,5 +1,6 @@
 package com.teamani.moamoa.schedule.dto
 
+import com.teamani.moamoa.schedule.entity.ScheduleStatus
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
@@ -38,7 +39,9 @@ data class ScheduleSummaryResponse(
     val title: String,
     val startAt: OffsetDateTime,
     val endAt: OffsetDateTime?,
-    val location: String?
+    val location: String?,
+    // 투표 중(VOTING) 일정은 startAt에 가장 이른 후보 시간이 임시로 들어가므로 status로 구분
+    val status: ScheduleStatus
 )
 
 // 부분 수정: null이면 변경하지 않음 (종료 일시 순서는 기존 값과 합친 결과로 Service에서 검증)
@@ -67,5 +70,6 @@ data class ScheduleDetailResponse(
     val description: String?,
     val startAt: OffsetDateTime,
     val endAt: OffsetDateTime?,
-    val location: String?
+    val location: String?,
+    val status: ScheduleStatus
 )
