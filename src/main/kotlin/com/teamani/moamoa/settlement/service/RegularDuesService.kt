@@ -134,6 +134,9 @@ class RegularDuesService(
             cycleDay = regularDues.cycleDay,
             sendTime = regularDues.sendTime.format(SEND_TIME_FORMAT),
             dueDays = regularDues.dueDays,
+            bankName = regularDues.bankName,
+            accountNumber = regularDues.accountNumber,
+            accountHolder = regularDues.accountHolder,
             isActive = regularDues.isActive,
             postNotice = regularDues.postNotice
         )

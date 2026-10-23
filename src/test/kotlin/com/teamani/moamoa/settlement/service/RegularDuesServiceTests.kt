@@ -144,6 +144,9 @@ class RegularDuesServiceTests : BehaviorSpec({
             Then("등록순으로 설정 값을 반환하고 발송 시간은 HH:mm 형식이다") {
                 response.regularDues.map { it.regularDuesId } shouldBe listOf(7L, 8L)
                 response.regularDues[0].sendTime shouldBe "09:00"
+                response.regularDues[0].bankName shouldBe "국민은행"
+                response.regularDues[0].accountNumber shouldBe "123456789012"
+                response.regularDues[0].accountHolder shouldBe "김모아"
                 response.regularDues[1].cycleType shouldBe CycleType.WEEKLY
                 response.regularDues[1].cycleDay shouldBe "FRI"
             }

@@ -44,6 +44,9 @@ class RegularDuesControllerTests : BehaviorSpec() {
         cycleDay = "10",
         sendTime = "09:00",
         dueDays = 7,
+        bankName = "국민은행",
+        accountNumber = "123456789012",
+        accountHolder = "김모아",
         isActive = false,
         postNotice = false
     )
@@ -192,6 +195,9 @@ class RegularDuesControllerTests : BehaviorSpec() {
                         jsonPath("$.data.regularDues[0].regularDuesId") { value(7) }
                         jsonPath("$.data.regularDues[0].cycleType") { value("MONTHLY") }
                         jsonPath("$.data.regularDues[0].sendTime") { value("09:00") }
+                        jsonPath("$.data.regularDues[0].bankName") { value("국민은행") }
+                        jsonPath("$.data.regularDues[0].accountNumber") { value("123456789012") }
+                        jsonPath("$.data.regularDues[0].accountHolder") { value("김모아") }
                         jsonPath("$.data.regularDues[0].isActive") { value(false) }
                         jsonPath("$.data.regularDues[0].postNotice") { value(false) }
                     }
@@ -211,6 +217,7 @@ class RegularDuesControllerTests : BehaviorSpec() {
                     }.andExpect {
                         status { isOk() }
                         jsonPath("$.data.amount") { value(15000) }
+                        jsonPath("$.data.bankName") { value("국민은행") }
                         jsonPath("$.data.isActive") { value(false) }
                     }
                 }

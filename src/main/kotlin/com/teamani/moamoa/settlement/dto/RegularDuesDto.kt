@@ -70,6 +70,10 @@ data class RegularDuesResponse(
     val cycleDay: String,
     val sendTime: String,
     val dueDays: Int,
+    // 관리자 수정 화면에서 기존 계좌를 채우는 데 사용
+    val bankName: String,
+    val accountNumber: String,
+    val accountHolder: String,
     val isActive: Boolean,
     val postNotice: Boolean
 )
