@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
 import jakarta.validation.valueextraction.Unwrapping
 import java.util.Optional
@@ -30,8 +31,9 @@ data class RegularDuesCreateRequest(
     @field:Pattern(regexp = SEND_TIME_PATTERN, message = SEND_TIME_MESSAGE)
     val sendTime: String? = null,
 
+    // 0이면 요청 발송 당일 마감
     @field:NotNull(message = "납부 기한 일수는 필수입니다.")
-    @field:Positive(message = "납부 기한 일수는 1 이상이어야 합니다.")
+    @field:PositiveOrZero(message = "납부 기한 일수는 0 이상이어야 합니다.")
     val dueDays: Int?,
 
     @field:NotBlank(message = "은행명은 필수입니다.")
@@ -89,7 +91,7 @@ data class RegularDuesUpdateRequest(
     @field:Pattern(regexp = SEND_TIME_PATTERN, message = SEND_TIME_MESSAGE, payload = [Unwrapping.Unwrap::class])
     val sendTime: Optional<String>? = null,
 
-    @field:Positive(message = "납부 기한 일수는 1 이상이어야 합니다.", payload = [Unwrapping.Unwrap::class])
+    @field:PositiveOrZero(message = "납부 기한 일수는 0 이상이어야 합니다.", payload = [Unwrapping.Unwrap::class])
     val dueDays: Optional<Int>? = null,
 
     @field:Pattern(regexp = NOT_BLANK_PATTERN, message = "은행명은 공백일 수 없습니다.", payload = [Unwrapping.Unwrap::class])
@@ -115,6 +117,7 @@ data class RegularDuesDeleteResponse(
 
 private const val CYCLE_TYPE_PATTERN = "WEEKLY|MONTHLY"
 private const val CYCLE_TYPE_MESSAGE = "반복 주기는 WEEKLY 또는 MONTHLY여야 합니다."
-private const val SEND_TIME_PATTERN = "([01][0-9]|2[0-3]):[0-5][0-9]"
-private const val SEND_TIME_MESSAGE = "발송 시간은 HH:mm 형식이어야 합니다."
+// 시는 한 자리(9:00)도 허용하고 저장·응답은 HH:mm, 24:00은 허용하지 않음
+private const val SEND_TIME_PATTERN = "([01]?[0-9]|2[0-3]):[0-5][0-9]"
+private const val SEND_TIME_MESSAGE = "발송 시간은 00:00~23:59 사이의 HH:mm 형식이어야 합니다."
 private const val NOT_BLANK_PATTERN = "(?s).*\\S.*"

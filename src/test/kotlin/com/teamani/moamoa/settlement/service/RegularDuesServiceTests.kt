@@ -103,6 +103,20 @@ class RegularDuesServiceTests : BehaviorSpec({
             }
     }
 
+    Given("시를 한 자리로 쓴 발송 시간으로 등록 요청이 주어졌을 때") {
+        `when`(regularDuesRepository.save(any(RegularDues::class.java))).thenReturn(regularDues())
+
+        When("9:00으로 createRegularDues 메서드를 호출하면") {
+            regularDuesService.createRegularDues(1L, 1L, createRequest(sendTime = "9:00"))
+
+            Then("09:00으로 저장된다") {
+                val captor = ArgumentCaptor.forClass(RegularDues::class.java)
+                verify(regularDuesRepository).save(captor.capture())
+                captor.value.sendTime shouldBe LocalTime.of(9, 0)
+            }
+        }
+    }
+
     Given("반복 주기에 맞지 않는 지정일로 등록 요청이 주어졌을 때") {
         listOf("WEEKLY" to "10", "WEEKLY" to "mon", "MONTHLY" to "MON", "MONTHLY" to "0", "MONTHLY" to "29", "MONTHLY" to "01")
             .forEach { (cycleType, cycleDay) ->

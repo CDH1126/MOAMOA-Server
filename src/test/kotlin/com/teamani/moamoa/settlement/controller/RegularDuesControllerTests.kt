@@ -97,6 +97,48 @@ class RegularDuesControllerTests : BehaviorSpec() {
             }
         }
 
+        Given("당일 마감(dueDays 0)과 한 자리 시(9:00)로 정기 회비 등록 요청이 주어졌을 때") {
+            val request = RegularDuesCreateRequest(
+                title = "월 회비",
+                amount = 10000,
+                cycleType = "WEEKLY",
+                cycleDay = "MON",
+                sendTime = "9:00",
+                dueDays = 0,
+                bankName = "국민은행",
+                accountNumber = "123456789012",
+                accountHolder = "김모아"
+            )
+
+            When("API를 호출하면") {
+                Then("검증을 통과해 201 Created를 반환한다") {
+                    `when`(regularDuesService.createRegularDues(1L, 1L, request)).thenReturn(
+                        RegularDuesCreateResponse(regularDuesId = 8L, title = "월 회비", isActive = true)
+                    )
+
+                    mockMvc.post("/v1/meetings/1/regular-dues") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """
+                            {
+                              "title": "월 회비",
+                              "amount": 10000,
+                              "cycleType": "WEEKLY",
+                              "cycleDay": "MON",
+                              "sendTime": "9:00",
+                              "dueDays": 0,
+                              "bankName": "국민은행",
+                              "accountNumber": "123456789012",
+                              "accountHolder": "김모아"
+                            }
+                        """.trimIndent()
+                    }.andExpect {
+                        status { isCreated() }
+                        jsonPath("$.data.regularDuesId") { value(8) }
+                    }
+                }
+            }
+        }
+
         Given("필수값이 누락되었거나 잘못된 정기 회비 등록 요청이 주어졌을 때") {
             val valid = mapOf(
                 "title" to "\"월 회비\"",
@@ -118,9 +160,9 @@ class RegularDuesControllerTests : BehaviorSpec() {
                 "cycleType 누락" to json(valid - "cycleType"),
                 "잘못된 cycleType" to json(valid + ("cycleType" to "\"DAILY\"")),
                 "cycleDay 누락" to json(valid - "cycleDay"),
-                "잘못된 sendTime 형식" to json(valid + ("sendTime" to "\"9:00\"")),
+                "잘못된 sendTime 형식" to json(valid + ("sendTime" to "\"9시\"")),
                 "범위를 벗어난 sendTime" to json(valid + ("sendTime" to "\"24:00\"")),
-                "dueDays 0" to json(valid + ("dueDays" to "0")),
+                "음수 dueDays" to json(valid + ("dueDays" to "-1")),
                 "accountHolder 누락" to json(valid - "accountHolder")
             )
 
@@ -200,7 +242,7 @@ class RegularDuesControllerTests : BehaviorSpec() {
                 "amount 0" to """{ "amount": 0 }""",
                 "잘못된 cycleType" to """{ "cycleType": "DAILY", "cycleDay": "MON" }""",
                 "잘못된 sendTime" to """{ "sendTime": "25:00" }""",
-                "dueDays 0" to """{ "dueDays": 0 }"""
+                "음수 dueDays" to """{ "dueDays": -1 }"""
             )
 
             invalidRequests.forEach { (case, requestJson) ->

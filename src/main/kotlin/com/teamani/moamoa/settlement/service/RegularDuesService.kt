@@ -42,7 +42,7 @@ class RegularDuesService(
                 amount = requireNotNull(request.amount) { "회비 금액은 필수입니다." },
                 cycleType = cycleType,
                 cycleDay = cycleDay,
-                sendTime = request.sendTime?.let { LocalTime.parse(it) } ?: RegularDues.DEFAULT_SEND_TIME,
+                sendTime = request.sendTime?.let { LocalTime.parse(it, SEND_TIME_INPUT_FORMAT) } ?: RegularDues.DEFAULT_SEND_TIME,
                 dueDays = requireNotNull(request.dueDays) { "납부 기한 일수는 필수입니다." },
                 bankName = requireNotNull(request.bankName) { "은행명은 필수입니다." },
                 accountNumber = requireNotNull(request.accountNumber) { "계좌번호는 필수입니다." },
@@ -98,7 +98,7 @@ class RegularDuesService(
             amount = request.amount.valueOrKeep("회비 금액"),
             cycleType = cycleType,
             cycleDay = cycleDay,
-            sendTime = request.sendTime.valueOrKeep("발송 시간")?.let { LocalTime.parse(it) },
+            sendTime = request.sendTime.valueOrKeep("발송 시간")?.let { LocalTime.parse(it, SEND_TIME_INPUT_FORMAT) },
             dueDays = request.dueDays.valueOrKeep("납부 기한 일수"),
             bankName = request.bankName.valueOrKeep("은행명"),
             accountNumber = request.accountNumber.valueOrKeep("계좌번호"),
@@ -171,6 +171,8 @@ class RegularDuesService(
     companion object {
         private val WEEKLY_DAYS = setOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
         private val MONTHLY_DAYS = (1..28).map { it.toString() }.toSet()
+        // 요청은 9:00·09:00 모두 허용, 응답은 09:00
+        private val SEND_TIME_INPUT_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
         private val SEND_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     }
 }
