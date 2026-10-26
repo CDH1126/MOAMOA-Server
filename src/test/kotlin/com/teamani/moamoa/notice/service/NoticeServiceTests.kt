@@ -87,7 +87,8 @@ class NoticeServiceTests : BehaviorSpec({
         val meetingId = 1L
         val noticeId = 30L
         val userId = 1L
-        val testCreatedAt = OffsetDateTime.now()
+        // 서버 시간대가 UTC여도 응답은 KST(+09:00)로 나가는지 확인
+        val testCreatedAt = OffsetDateTime.parse("2026-10-07T01:00:00Z")
 
         // 테스트용 Notice 엔티티 생성 (createdAt 명시 주입)
         val notice = Notice(
@@ -105,11 +106,11 @@ class NoticeServiceTests : BehaviorSpec({
         When("getNoticeDetail을 호출하면") {
             val response = noticeService.getNoticeDetail(meetingId, noticeId, userId)
 
-            Then("상세 정보(식별자, 제목, 내용, 생성일시)가 정상 반환된다") {
+            Then("상세 정보(식별자, 제목, 내용, KST 생성일시)가 정상 반환된다") {
                 response.noticeId shouldBe noticeId
                 response.title shouldBe "10월 회비 안내"
                 response.content shouldBe "10월 회비는 10일까지 납부 부탁드립니다."
-                response.createdAt shouldBe testCreatedAt
+                response.createdAt shouldBe OffsetDateTime.parse("2026-10-07T10:00:00+09:00")
                 verify(noticeRepository).findById(noticeId)
             }
         }
@@ -121,7 +122,7 @@ class NoticeServiceTests : BehaviorSpec({
         val page = 0
         val size = 20
         val pageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
-        val now = OffsetDateTime.now()
+        val now = OffsetDateTime.parse("2026-10-07T01:00:00Z")
 
         val noticeList = listOf(
             Notice(
@@ -140,11 +141,11 @@ class NoticeServiceTests : BehaviorSpec({
         When("getNotices를 호출하면") {
             val response = noticeService.getNotices(meetingId, page, size, userId)
 
-            Then("페이징 메타데이터와 공지 요약 목록이 반환된다") {
+            Then("페이징 메타데이터와 공지 요약 목록(KST 생성일시)이 반환된다") {
                 response.notices.size shouldBe 1
                 response.notices[0].noticeId shouldBe 30L
                 response.notices[0].title shouldBe "10월 회비 안내"
-                response.notices[0].createdAt shouldBe now
+                response.notices[0].createdAt shouldBe OffsetDateTime.parse("2026-10-07T10:00:00+09:00")
                 response.page shouldBe 0
                 response.size shouldBe 20
                 response.hasNext shouldBe false

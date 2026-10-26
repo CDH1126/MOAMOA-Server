@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZoneOffset
 
 @Service
 class NoticeService(
@@ -74,7 +75,7 @@ class NoticeService(
             noticeId = checkNotNull(notice.id) { "공지사항 ID가 null입니다." },
             title = notice.title,
             content = notice.content,
-            createdAt = notice.createdAt
+            createdAt = notice.createdAt.withOffsetSameInstant(KST)
         )
     }
 
@@ -92,7 +93,7 @@ class NoticeService(
             NoticeSummaryResponse(
                 noticeId = checkNotNull(notice.id) { "공지사항 ID가 null입니다." },
                 title = notice.title,
-                createdAt = notice.createdAt
+                createdAt = notice.createdAt.withOffsetSameInstant(KST)
             )
         }
 
@@ -102,5 +103,10 @@ class NoticeService(
             size = noticePage.size,
             hasNext = noticePage.hasNext()
         )
+    }
+
+    companion object {
+        // API 명세상 응답 일시는 KST(+09:00)
+        private val KST: ZoneOffset = ZoneOffset.ofHours(9)
     }
 }
