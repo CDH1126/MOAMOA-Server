@@ -142,6 +142,30 @@ class SettlementServiceTests : BehaviorSpec({
         }
     }
 
+    Given("총 정산 금액이 대상 인원수보다 적은 생성 요청이 주어졌을 때") {
+        val request = SettlementCreateRequest(
+            title = "10월 정기 모임 식비",
+            totalAmount = 2,
+            memberIds = listOf(1L, 2L, 3L),
+            bankName = "국민은행",
+            accountNumber = "123456789012",
+            accountHolder = "김모아",
+            dueAt = OffsetDateTime.parse("2026-10-20T14:59:00Z")
+        )
+
+        When("createSettlement 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                settlementService.createSettlement(1L, 1L, request)
+            }
+
+            Then("VALIDATION_ERROR 예외가 발생하고 0원 납부 항목은 만들어지지 않는다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+                verify(settlementRepository, never()).save(any(Settlement::class.java))
+                verify(settlementMemberRepository, never()).saveAll(anyList())
+            }
+        }
+    }
+
     Given("모임에 정산이 있고 현재 구성원이 일부 정산의 대상일 때") {
         val newer = settlement(41L, "2026-10-15T01:00:00Z")
         val older = settlement(40L, "2026-10-14T01:00:00Z")
