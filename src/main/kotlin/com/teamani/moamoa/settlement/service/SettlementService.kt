@@ -35,10 +35,14 @@ class SettlementService(
         if (memberIds.toSet().size != memberIds.size) {
             throw ApiException(ErrorCode.VALIDATION_ERROR, "정산 대상 구성원이 중복되었습니다.")
         }
+        val totalAmount = requireNotNull(request.totalAmount) { "총 정산 금액은 필수입니다." }
+        // 1인당 금액이 0원이 되지 않도록 총액은 대상 인원수 이상이어야 함
+        if (totalAmount < memberIds.size) {
+            throw ApiException(ErrorCode.VALIDATION_ERROR, "총 정산 금액은 대상 인원수 이상이어야 합니다.")
+        }
         validateTargetMembers(meetingId, memberIds)
         validateSchedule(meetingId, request.scheduleId)
 
-        val totalAmount = requireNotNull(request.totalAmount) { "총 정산 금액은 필수입니다." }
         val amounts = splitAmount(totalAmount, memberIds, memberId)
 
         val settlement = settlementRepository.save(
