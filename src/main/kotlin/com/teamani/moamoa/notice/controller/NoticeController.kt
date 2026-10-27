@@ -1,5 +1,6 @@
 package com.teamani.moamoa.notice.controller
 
+import com.teamani.moamoa.global.response.CommonResponse
 import com.teamani.moamoa.notice.dto.NoticeCreateRequest
 import com.teamani.moamoa.notice.dto.NoticeCreateResponse
 import com.teamani.moamoa.notice.dto.NoticeDeleteResponse
@@ -34,59 +35,36 @@ class NoticeController(
     fun createNotice(
         @PathVariable meetingId: Long,
         @Valid @RequestBody request: NoticeCreateRequest
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<NoticeCreateResponse>> {
         // 인증 구현 전 임시 관리자 ID (데모용 1L)
         val currentUserId = 1L
 
         val response: NoticeCreateResponse = noticeService.createNotice(meetingId, currentUserId, request)
 
-        // API 명세서 Envelope 포맷 규격: { success, data, error, timestamp }
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.status(HttpStatus.CREATED).body(CommonResponse(data = response))
     }
 
     @DeleteMapping("/{noticeId}")
     fun deleteNotice(
         @PathVariable meetingId: Long,
         @PathVariable noticeId: Long
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<NoticeDeleteResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
 
         val response: NoticeDeleteResponse = noticeService.deleteNotice(meetingId, noticeId, currentUserId)
 
-        // API 명세서 Envelope 포맷 규격: { success, data: { noticeId }, error: null, timestamp }
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 
     @GetMapping("/{noticeId}")
     fun getNoticeDetail(
         @PathVariable meetingId: Long,
         @PathVariable noticeId: Long
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<NoticeDetailResponse>> {
         val currentUserId = 1L
         val response: NoticeDetailResponse = noticeService.getNoticeDetail(meetingId, noticeId, currentUserId)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 
     @GetMapping
@@ -94,18 +72,11 @@ class NoticeController(
         @PathVariable meetingId: Long,
         @RequestParam(defaultValue = "0") @Min(0) page: Int,
         @RequestParam(defaultValue = "20") @Min(1) @Max(100) size: Int
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<NoticeListResponse>> {
         val currentUserId = 1L
         val response: NoticeListResponse = noticeService.getNotices(meetingId, page, size, currentUserId)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 
     @PatchMapping("/{noticeId}")

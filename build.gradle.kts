@@ -31,6 +31,8 @@ dependencies {
     testRuntimeOnly("com.h2database:h2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
@@ -40,7 +42,8 @@ dependencies {
 
 kotlin {
     compilerOptions {
-        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+        // -Xemit-jvm-type-annotations: Optional<@Size String> 같은 타입 인자 검증 어노테이션을 바이트코드에 남김 (없으면 검증이 조용히 무시됨)
+        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property", "-Xemit-jvm-type-annotations")
     }
 }
 
