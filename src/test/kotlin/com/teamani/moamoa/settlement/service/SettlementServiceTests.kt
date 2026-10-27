@@ -2,6 +2,9 @@ package com.teamani.moamoa.settlement.service
 
 import com.teamani.moamoa.global.exception.ApiException
 import com.teamani.moamoa.global.exception.ErrorCode
+import com.teamani.moamoa.notice.dto.NoticeCreateRequest
+import com.teamani.moamoa.notice.dto.NoticeCreateResponse
+import com.teamani.moamoa.notice.service.NoticeService
 import com.teamani.moamoa.settlement.dto.SettlementCreateRequest
 import com.teamani.moamoa.settlement.entity.PaymentStatus
 import com.teamani.moamoa.settlement.entity.Settlement
@@ -22,22 +25,24 @@ import org.mockito.Mockito.clearInvocations
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
 import java.time.OffsetDateTime
 
 class SettlementServiceTests : BehaviorSpec({
 
     val settlementRepository: SettlementRepository = mock(SettlementRepository::class.java)
     val settlementMemberRepository: SettlementMemberRepository = mock(SettlementMemberRepository::class.java)
-    val settlementService = SettlementService(settlementRepository, settlementMemberRepository)
+    val noticeService: NoticeService = mock(NoticeService::class.java)
+    val settlementService = SettlementService(settlementRepository, settlementMemberRepository, noticeService)
 
-    afterEach { clearInvocations(settlementRepository, settlementMemberRepository) }
+    afterEach { clearInvocations(settlementRepository, settlementMemberRepository, noticeService) }
 
-    fun settlement(id: Long, createdAt: String = "2026-10-14T01:00:00Z") = Settlement(
+    fun settlement(id: Long, createdAt: String = "2026-10-14T01:00:00Z", title: String = "10월 정기 모임 식비") = Settlement(
         id = id,
         meetingId = 1L,
         scheduleId = 20L,
         createdBy = 1L,
-        title = "10월 정기 모임 식비",
+        title = title,
         totalAmount = 45000,
         bankName = "국민은행",
         accountNumber = "123456789012",
@@ -114,6 +119,76 @@ class SettlementServiceTests : BehaviorSpec({
                 response.memberCount shouldBe 3
                 response.status shouldBe SettlementStatus.IN_PROGRESS
                 response.noticeId.shouldBeNull()
+                verifyNoInteractions(noticeService)
+            }
+        }
+    }
+
+    Given("공지 자동 연동을 켠 정산 생성 요청이 주어졌을 때") {
+        val request = SettlementCreateRequest(
+            scheduleId = 20L,
+            title = "10월 정기 모임 식비",
+            totalAmount = 10000,
+            memberIds = listOf(1L, 5L, 9L),
+            bankName = "국민은행",
+            accountNumber = "123456789012",
+            accountHolder = "김모아",
+            dueAt = OffsetDateTime.parse("2026-10-20T14:59:00Z"),
+            postNotice = true
+        )
+        val expectedNotice = NoticeCreateRequest(
+            title = "[정산] 10월 정기 모임 식비",
+            content = "정산명: 10월 정기 모임 식비\n" +
+                "1인당 금액: 3,333원\n" +
+                "입금 계좌: 국민은행 123456789012 (김모아)\n" +
+                "납부 기한: 2026-10-20 23:59"
+        )
+
+        `when`(settlementRepository.save(any(Settlement::class.java))).thenReturn(settlement(40L))
+        `when`(noticeService.createNotice(1L, 1L, expectedNotice))
+            .thenReturn(NoticeCreateResponse(noticeId = 12L, title = "[정산] 10월 정기 모임 식비"))
+
+        When("createSettlement 메서드를 호출하면") {
+            val response = settlementService.createSettlement(1L, 1L, request)
+
+            Then("정산 안내 공지가 생성되고 정산에 공지 ID가 연결된다") {
+                verify(noticeService).createNotice(1L, 1L, expectedNotice)
+                response.noticeId shouldBe 12L
+            }
+        }
+    }
+
+    Given("정산명이 길어 공지 제목이 50자를 넘는 정산 생성 요청이 주어졌을 때") {
+        val longTitle = "가".repeat(50)
+        val request = SettlementCreateRequest(
+            title = longTitle,
+            totalAmount = 10000,
+            memberIds = listOf(1L),
+            bankName = "국민은행",
+            accountNumber = "123456789012",
+            accountHolder = "김모아",
+            dueAt = OffsetDateTime.parse("2026-10-20T14:59:00Z"),
+            postNotice = true
+        )
+        val expectedNotice = NoticeCreateRequest(
+            title = ("[정산] " + longTitle).take(50),
+            content = "정산명: $longTitle\n" +
+                "1인당 금액: 10,000원\n" +
+                "입금 계좌: 국민은행 123456789012 (김모아)\n" +
+                "납부 기한: 2026-10-20 23:59"
+        )
+
+        `when`(settlementRepository.save(any(Settlement::class.java))).thenReturn(settlement(41L, title = longTitle))
+        `when`(noticeService.createNotice(1L, 1L, expectedNotice))
+            .thenReturn(NoticeCreateResponse(noticeId = 13L, title = expectedNotice.title.orEmpty()))
+
+        When("createSettlement 메서드를 호출하면") {
+            val response = settlementService.createSettlement(1L, 1L, request)
+
+            Then("공지 제목은 앞 50자까지만 쓰고 공지 내용에는 정산명 전체가 들어간다") {
+                verify(noticeService).createNotice(1L, 1L, expectedNotice)
+                expectedNotice.title.orEmpty().length shouldBe 50
+                response.noticeId shouldBe 13L
             }
         }
     }

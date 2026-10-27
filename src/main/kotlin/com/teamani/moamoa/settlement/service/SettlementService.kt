@@ -2,6 +2,8 @@ package com.teamani.moamoa.settlement.service
 
 import com.teamani.moamoa.global.exception.ApiException
 import com.teamani.moamoa.global.exception.ErrorCode
+import com.teamani.moamoa.notice.dto.NoticeCreateRequest
+import com.teamani.moamoa.notice.service.NoticeService
 import com.teamani.moamoa.settlement.dto.MyPaymentResponse
 import com.teamani.moamoa.settlement.dto.PaymentResponse
 import com.teamani.moamoa.settlement.dto.PaymentSummaryResponse
@@ -18,11 +20,14 @@ import com.teamani.moamoa.settlement.repository.SettlementRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Service
 class SettlementService(
     private val settlementRepository: SettlementRepository,
-    private val settlementMemberRepository: SettlementMemberRepository
+    private val settlementMemberRepository: SettlementMemberRepository,
+    private val noticeService: NoticeService
 ) {
 
     @Transactional
@@ -63,6 +68,16 @@ class SettlementService(
         settlementMemberRepository.saveAll(
             memberIds.map { SettlementMember(settlementId = settlementId, memberId = it, amount = amounts.getValue(it)) }
         )
+
+        // 공지 생성에 실패하면 같은 트랜잭션이라 정산도 함께 롤백됨
+        if (request.postNotice == true) {
+            val notice = noticeService.createNotice(
+                meetingId,
+                memberId,
+                settlementNotice(settlement, totalAmount / memberIds.size)
+            )
+            settlement.noticeId = notice.noticeId
+        }
 
         // TODO: 푸시 알림 - 정산 대상 구성원에게 정산 요청 알림 발송
 
@@ -189,9 +204,20 @@ class SettlementService(
         // TODO: scheduleId가 있는데 해당 모임의 일정이 아니면 404 NOT_FOUND
     }
 
+    // 정산 안내 공지: 제목은 공지 제목 최대 길이를 넘으면 잘라 쓰고, 내용에는 정산명 전체를 담음
+    private fun settlementNotice(settlement: Settlement, amountPerMember: Int) = NoticeCreateRequest(
+        title = "[정산] ${settlement.title}".take(NOTICE_TITLE_MAX_LENGTH),
+        content = "정산명: ${settlement.title}\n" +
+            "1인당 금액: ${"%,d".format(Locale.KOREA, amountPerMember)}원\n" +
+            "입금 계좌: ${settlement.bankName} ${settlement.accountNumber} (${settlement.accountHolder})\n" +
+            "납부 기한: ${settlement.dueAt.withOffsetSameInstant(KST).format(NOTICE_DUE_AT_FORMAT)}"
+    )
+
     companion object {
         // API 명세상 응답 일시는 KST(+09:00)
         private val KST: ZoneOffset = ZoneOffset.ofHours(9)
+        private const val NOTICE_TITLE_MAX_LENGTH = 50
+        private val NOTICE_DUE_AT_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
     }
 }
 
