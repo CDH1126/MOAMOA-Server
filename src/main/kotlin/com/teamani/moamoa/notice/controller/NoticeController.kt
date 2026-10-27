@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.OffsetDateTime
 
 @RestController
 @RequestMapping("/v1/meetings/{meetingId}/notices")
@@ -84,17 +83,10 @@ class NoticeController(
         @PathVariable meetingId: Long,
         @PathVariable noticeId: Long,
         @Valid @RequestBody request: NoticeUpdateRequest
-    ): ResponseEntity<Map<String, Any?>> {
+    ): ResponseEntity<CommonResponse<NoticeUpdateResponse>> {
         val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
         val response: NoticeUpdateResponse = noticeService.updateNotice(meetingId, noticeId, currentUserId, request)
 
-        return ResponseEntity.ok(
-            mapOf(
-                "success" to true,
-                "data" to response,
-                "error" to null,
-                "timestamp" to OffsetDateTime.now()
-            )
-        )
+        return ResponseEntity.ok(CommonResponse(data = response))
     }
 }

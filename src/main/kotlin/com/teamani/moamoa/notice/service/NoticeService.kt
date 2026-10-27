@@ -11,7 +11,6 @@ import com.teamani.moamoa.notice.dto.NoticeSummaryResponse
 import com.teamani.moamoa.notice.dto.NoticeUpdateRequest
 import com.teamani.moamoa.notice.dto.NoticeUpdateResponse
 import com.teamani.moamoa.notice.entity.Notice
-import com.teamani.moamoa.notice.exception.NoticeNotFoundException
 import com.teamani.moamoa.notice.repository.NoticeRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -121,7 +120,7 @@ class NoticeService(
         // 공지가 없거나 다른 모임의 공지면 404
         val notice = noticeRepository.findById(noticeId)
             .filter { it.meetingId == meetingId }
-            .orElseThrow { NoticeNotFoundException("공지사항을 찾을 수 없습니다. (ID: $noticeId)") }
+            .orElseThrow { ApiException(ErrorCode.NOT_FOUND, "공지사항을 찾을 수 없습니다.") }
 
         // 변경 감지(Dirty Checking)로 트랜잭션 종료 시 반영
         notice.update(request.title, request.content)
