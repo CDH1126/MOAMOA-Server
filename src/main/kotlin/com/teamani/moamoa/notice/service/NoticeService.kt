@@ -17,6 +17,7 @@ import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZoneOffset
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class NoticeService(
@@ -123,7 +124,7 @@ class NoticeService(
             .orElseThrow { ApiException(ErrorCode.NOT_FOUND, "공지사항을 찾을 수 없습니다.") }
 
         // 변경 감지(Dirty Checking)로 트랜잭션 종료 시 반영
-        notice.update(request.title, request.content)
+        notice.update(request.title?.getOrNull(), request.content?.getOrNull())
 
         return NoticeUpdateResponse(
             noticeId = checkNotNull(notice.id) { "공지사항 ID가 null입니다." },
