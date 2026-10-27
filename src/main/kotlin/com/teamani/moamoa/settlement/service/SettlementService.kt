@@ -37,6 +37,10 @@ class SettlementService(
         validateAdmin(meetingId, memberId)
 
         val memberIds = requireNotNull(request.memberIds) { "정산 대상 구성원은 필수입니다." }
+        // DTO 검증을 거치지 않는 내부 호출(정기 회비 자동 생성 등)에서도 0으로 나누지 않도록 확인
+        if (memberIds.isEmpty()) {
+            throw ApiException(ErrorCode.VALIDATION_ERROR, "정산 대상 구성원은 1명 이상이어야 합니다.")
+        }
         if (memberIds.toSet().size != memberIds.size) {
             throw ApiException(ErrorCode.VALIDATION_ERROR, "정산 대상 구성원이 중복되었습니다.")
         }

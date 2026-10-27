@@ -193,6 +193,30 @@ class SettlementServiceTests : BehaviorSpec({
         }
     }
 
+    Given("정산 대상 구성원이 비어 있는 생성 요청이 주어졌을 때") {
+        val request = SettlementCreateRequest(
+            title = "10월 정기 모임 식비",
+            totalAmount = 10000,
+            memberIds = emptyList(),
+            bankName = "국민은행",
+            accountNumber = "123456789012",
+            accountHolder = "김모아",
+            dueAt = OffsetDateTime.parse("2026-10-20T14:59:00Z")
+        )
+
+        When("createSettlement 메서드를 호출하면") {
+            val exception = shouldThrow<ApiException> {
+                settlementService.createSettlement(1L, 1L, request)
+            }
+
+            Then("0으로 나누기 전에 VALIDATION_ERROR 예외가 발생하고 정산은 저장되지 않는다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+                verify(settlementRepository, never()).save(any(Settlement::class.java))
+                verify(settlementMemberRepository, never()).saveAll(anyList())
+            }
+        }
+    }
+
     Given("정산 대상 구성원이 중복된 생성 요청이 주어졌을 때") {
         val request = SettlementCreateRequest(
             title = "10월 정기 모임 식비",
