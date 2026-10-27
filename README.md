@@ -448,6 +448,7 @@ src/
 - 테스트는 `application-test.yml`의 메모리 H2를 사용합니다. 별도 서버와 접속 정보가 필요 없으며 데이터는 영구 저장되지 않습니다.
 - H2 콘솔, 샘플 테이블, 초기 데이터는 구성하지 않았습니다.
 - Kotlin `jvm`, `plugin.spring`, `plugin.jpa`를 사용합니다. Spring 프록시와 JPA 기본 생성자를 지원하고, JPA 타입의 프록시 생성을 위한 `allOpen` 설정을 포함합니다.
+- Kotlin 컴파일러 옵션 `-Xemit-jvm-type-annotations`로 타입 인자 위치의 어노테이션을 바이트코드에 남깁니다. `Optional<@Size String>`처럼 타입 인자에 단 검증 어노테이션은 이 옵션이 없으면 오류 없이 무시됩니다.
 - Kotlin 표준 라이브러리는 Kotlin Gradle Plugin이 추가합니다. `kotlin-reflect`와 Jackson 3 Kotlin 모듈은 직접 선언합니다.
 - Spring Boot dependency management로 관리되는 라이브러리에는 개별 버전을 지정하지 않습니다. springdoc만 `3.1.1`을 명시합니다.
 - `.gitignore`는 Gradle·Kotlin 빌드 캐시, 빌드 산출물, IntelliJ 파일과 `.env`를 제외합니다. Gradle Wrapper는 저장소에 포함합니다.
