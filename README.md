@@ -428,8 +428,16 @@ src/
 - Controller에는 HTTP 요청/응답 처리 책임만 둡니다.
 - 비즈니스 규칙은 Controller에 직접 작성하지 않습니다.
 - API 응답에는 Entity를 직접 노출하기보다 DTO 사용을 권장합니다.
-- TODO: DTO·Entity 명명, Service·Repository 구성, 예외 처리 방식과 공통 API 응답 형식은 실제 기능 구현 시 정리합니다.
+- TODO: DTO·Entity 명명, Service·Repository 구성과 공통 API 응답 형식은 실제 기능 구현 시 정리합니다.
 - 트랜잭션 범위는 비즈니스 작업 단위를 기준으로 명확하게 설정합니다.
+
+#### 예외 처리와 에러 코드
+
+- 사용자 요청 때문에 생기는 오류(없는 리소스, 권한 없음, 잘못된 상태 등)는 `ApiException`과 `ErrorCode`로만 던집니다. `IllegalArgumentException`, `IllegalStateException`, `require`, `check`, `ResponseStatusException`, `@ResponseStatus`를 붙인 예외 클래스는 전역 예외 처리기에서 500으로 응답되므로 이런 오류에 사용하지 않습니다.
+- `requireNotNull`, `checkNotNull`은 DTO 검증을 통과한 값이나 저장된 엔티티의 id처럼 null이 될 수 없는 값을 꺼낼 때만 사용합니다. (발생하면 서버 버그이므로 500이 맞습니다)
+- 두 필드 이상을 비교하는 검증(예: 종료 일시가 시작 일시보다 이전, 대상 중복)은 Service에서 합니다. DTO의 `@AssertTrue`는 에러 응답의 field가 요청에 없는 이름으로 나가므로 사용하지 않습니다.
+- 오류는 다음 순서로 확인합니다: 요청 형식 400 → 모임 없음·삭제됨 404 → 권한 403 → 하위 리소스 404 → 상태 422 → 그 외 400·409
+- 요청 본문에 담긴 ID(예: `memberIds`)가 해당 모임에 속하지 않으면 404 `NOT_FOUND`입니다.
 
 ### 4. 테스트
 
