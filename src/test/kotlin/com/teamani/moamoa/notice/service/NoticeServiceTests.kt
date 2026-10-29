@@ -3,6 +3,7 @@ package com.teamani.moamoa.notice.service
 import com.teamani.moamoa.global.exception.ApiException
 import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.notice.dto.NoticeCreateRequest
+import com.teamani.moamoa.notice.dto.NoticeUpdateRequest
 import com.teamani.moamoa.notice.entity.Notice
 import com.teamani.moamoa.notice.repository.NoticeRepository
 import io.kotest.assertions.throwables.shouldThrow
@@ -263,6 +264,78 @@ class NoticeServiceTests : BehaviorSpec({
 
             Then("NOT_FOUND 예외가 발생한다") {
                 exception.errorCode shouldBe ErrorCode.NOT_FOUND
+            }
+        }
+    }
+
+    Given("공지사항 수정 요청이 주어졌을 때") {
+        val meetingId = 1L
+        val noticeId = 40L
+
+        fun notice() = Notice(id = noticeId, meetingId = meetingId, membersId = 1L, title = "기존 제목", content = "기존 내용")
+
+        When("제목만 보내면") {
+            val notice = notice()
+            `when`(noticeRepository.findById(noticeId)).thenReturn(Optional.of(notice))
+            val response = noticeService.updateNotice(meetingId, noticeId, 1L, NoticeUpdateRequest(title = Optional.of("수정된 제목")))
+
+            Then("제목만 변경되고 내용은 기존 값이 유지된다") {
+                response.title shouldBe "수정된 제목"
+                response.content shouldBe "기존 내용"
+                notice.title shouldBe "수정된 제목"
+                notice.content shouldBe "기존 내용"
+            }
+        }
+
+        When("내용만 보내면") {
+            val notice = notice()
+            `when`(noticeRepository.findById(noticeId)).thenReturn(Optional.of(notice))
+            val response = noticeService.updateNotice(meetingId, noticeId, 1L, NoticeUpdateRequest(content = Optional.of("수정된 내용")))
+
+            Then("내용만 변경되고 제목은 기존 값이 유지된다") {
+                response.title shouldBe "기존 제목"
+                response.content shouldBe "수정된 내용"
+                notice.title shouldBe "기존 제목"
+            }
+        }
+
+        When("아무 필드도 보내지 않으면") {
+            val notice = notice()
+            `when`(noticeRepository.findById(noticeId)).thenReturn(Optional.of(notice))
+            val response = noticeService.updateNotice(meetingId, noticeId, 1L, NoticeUpdateRequest())
+
+            Then("변경 없이 기존 값을 반환한다") {
+                response.noticeId shouldBe noticeId
+                response.title shouldBe "기존 제목"
+                response.content shouldBe "기존 내용"
+            }
+        }
+    }
+
+    Given("없거나 다른 모임에 속한 공지사항의 수정 요청이 주어졌을 때") {
+        val otherMeetingNotice = Notice(id = 42L, meetingId = 2L, membersId = 1L, title = "다른 모임 공지", content = "다른 모임 공지 내용")
+        val request = NoticeUpdateRequest(title = Optional.of("수정된 제목"))
+
+        When("존재하지 않는 공지 ID로 updateNotice를 호출하면") {
+            `when`(noticeRepository.findById(41L)).thenReturn(Optional.empty())
+            val exception = shouldThrow<ApiException> {
+                noticeService.updateNotice(1L, 41L, 1L, request)
+            }
+
+            Then("NOT_FOUND 예외가 발생한다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
+            }
+        }
+
+        When("다른 모임의 공지 ID로 updateNotice를 호출하면") {
+            `when`(noticeRepository.findById(42L)).thenReturn(Optional.of(otherMeetingNotice))
+            val exception = shouldThrow<ApiException> {
+                noticeService.updateNotice(1L, 42L, 1L, request)
+            }
+
+            Then("NOT_FOUND 예외가 발생하고 공지는 변경되지 않는다") {
+                exception.errorCode shouldBe ErrorCode.NOT_FOUND
+                otherMeetingNotice.title shouldBe "다른 모임 공지"
             }
         }
     }

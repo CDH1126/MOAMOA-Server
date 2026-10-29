@@ -6,6 +6,8 @@ import com.teamani.moamoa.notice.dto.NoticeCreateResponse
 import com.teamani.moamoa.notice.dto.NoticeDeleteResponse
 import com.teamani.moamoa.notice.dto.NoticeDetailResponse
 import com.teamani.moamoa.notice.dto.NoticeListResponse
+import com.teamani.moamoa.notice.dto.NoticeUpdateRequest
+import com.teamani.moamoa.notice.dto.NoticeUpdateResponse
 import com.teamani.moamoa.notice.service.NoticeService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
@@ -14,6 +16,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -71,6 +74,18 @@ class NoticeController(
     ): ResponseEntity<CommonResponse<NoticeListResponse>> {
         val currentUserId = 1L
         val response: NoticeListResponse = noticeService.getNotices(meetingId, page, size, currentUserId)
+
+        return ResponseEntity.ok(CommonResponse(data = response))
+    }
+
+    @PatchMapping("/{noticeId}")
+    fun updateNotice(
+        @PathVariable meetingId: Long,
+        @PathVariable noticeId: Long,
+        @Valid @RequestBody request: NoticeUpdateRequest
+    ): ResponseEntity<CommonResponse<NoticeUpdateResponse>> {
+        val currentUserId = 1L // TODO: 인증 구현 시 실제 사용자 ID로 교체
+        val response: NoticeUpdateResponse = noticeService.updateNotice(meetingId, noticeId, currentUserId, request)
 
         return ResponseEntity.ok(CommonResponse(data = response))
     }
