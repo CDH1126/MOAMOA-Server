@@ -139,9 +139,10 @@ class SettlementServiceTests : BehaviorSpec({
         val expectedNotice = NoticeCreateRequest(
             title = "[정산] 10월 정기 모임 식비",
             content = "정산명: 10월 정기 모임 식비\n" +
-                "1인당 금액: 3,333원\n" +
+                "기본 1인당 금액: 3,333원\n" +
                 "입금 계좌: 국민은행 123456789012 (김모아)\n" +
-                "납부 기한: 2026-10-20 23:59"
+                "납부 기한: 2026-10-20 23:59\n" +
+                "개인별 실제 납부 금액은 정산 상세에서 확인해 주세요."
         )
 
         `when`(settlementRepository.save(any(Settlement::class.java))).thenReturn(settlement(40L))
@@ -173,9 +174,10 @@ class SettlementServiceTests : BehaviorSpec({
         val expectedNotice = NoticeCreateRequest(
             title = ("[정산] " + longTitle).take(50),
             content = "정산명: $longTitle\n" +
-                "1인당 금액: 10,000원\n" +
+                "기본 1인당 금액: 10,000원\n" +
                 "입금 계좌: 국민은행 123456789012 (김모아)\n" +
-                "납부 기한: 2026-10-20 23:59"
+                "납부 기한: 2026-10-20 23:59\n" +
+                "개인별 실제 납부 금액은 정산 상세에서 확인해 주세요."
         )
 
         `when`(settlementRepository.save(any(Settlement::class.java))).thenReturn(settlement(41L, title = longTitle))

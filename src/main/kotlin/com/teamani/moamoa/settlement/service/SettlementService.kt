@@ -212,9 +212,10 @@ class SettlementService(
     private fun settlementNotice(settlement: Settlement, amountPerMember: Int) = NoticeCreateRequest(
         title = "[정산] ${settlement.title}".take(NOTICE_TITLE_MAX_LENGTH),
         content = "정산명: ${settlement.title}\n" +
-            "1인당 금액: ${"%,d".format(Locale.KOREA, amountPerMember)}원\n" +
+            "기본 1인당 금액: ${"%,d".format(Locale.KOREA, amountPerMember)}원\n" +
             "입금 계좌: ${settlement.bankName} ${settlement.accountNumber} (${settlement.accountHolder})\n" +
-            "납부 기한: ${settlement.dueAt.withOffsetSameInstant(KST).format(NOTICE_DUE_AT_FORMAT)}"
+            "납부 기한: ${settlement.dueAt.withOffsetSameInstant(KST).format(NOTICE_DUE_AT_FORMAT)}\n" +
+            "개인별 실제 납부 금액은 정산 상세에서 확인해 주세요."
     )
 
     companion object {
