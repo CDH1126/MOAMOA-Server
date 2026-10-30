@@ -11,6 +11,7 @@ permissions:
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+  queue: max
 
 env:
   IMAGE_NAME: moamoa-server
@@ -70,33 +71,46 @@ jobs:
       - name: Create runtime env file
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           PROD_DB_NAME: ${{ vars.PROD_DB_NAME }}
           PROD_DB_USERNAME: ${{ vars.PROD_DB_USERNAME }}
           PROD_DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
         run: |
-          for name in EC2_HOST EC2_USERNAME EC2_SSH_KEY DOCKERHUB_USERNAME PROD_DB_NAME PROD_DB_USERNAME PROD_DB_PASSWORD; do
+          for name in EC2_HOST EC2_USERNAME EC2_SSH_KEY EC2_KNOWN_HOSTS DOCKERHUB_USERNAME PROD_DB_NAME PROD_DB_USERNAME PROD_DB_PASSWORD; do
             if [ -z "${!name}" ]; then
               echo "::error::Required setting is missing: $name"
               exit 1
             fi
           done
+          for name in DOCKERHUB_USERNAME PROD_DB_NAME PROD_DB_USERNAME PROD_DB_PASSWORD; do
+            case "${!name}" in
+              *"'"* | *$'\n'* | *$'\r'*)
+                echo "::error::$name must not contain single quotes or line breaks"
+                exit 1
+                ;;
+            esac
+          done
           umask 077
           {
-            echo "APP_IMAGE=$DOCKERHUB_USERNAME/$IMAGE_NAME:$GITHUB_REF_NAME"
-            echo "DB_NAME=$PROD_DB_NAME"
-            echo "DB_USERNAME=$PROD_DB_USERNAME"
-            echo "DB_PASSWORD=$PROD_DB_PASSWORD"
+            printf "APP_IMAGE='%s'\n" "$DOCKERHUB_USERNAME/$IMAGE_NAME:$GITHUB_REF_NAME"
+            printf "DB_NAME='%s'\n" "$PROD_DB_NAME"
+            printf "DB_USERNAME='%s'\n" "$PROD_DB_USERNAME"
+            printf "DB_PASSWORD='%s'\n" "$PROD_DB_PASSWORD"
           } > runtime.env
 
       - name: Set up SSH key
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          printf 'StrictHostKeyChecking yes\n' > ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Copy deploy files
         run: |
@@ -111,16 +125,37 @@ jobs:
             cd ~/moamoa
             chmod 600 .env.next
             docker compose --env-file .env.next -f compose.yml config --quiet
+            if [ -f .env ]; then cp -p .env .env.prev; else rm -f .env.prev; fi
             mv .env.next .env
-            docker compose up -d
-            docker image prune -af'
+            docker compose up -d'
 
       - name: Check health
         run: |
           ssh -i ~/.ssh/deploy_key "$EC2_USERNAME@$EC2_HOST" '
-            for i in $(seq 1 30); do
-              curl -fsS http://localhost:8080/actuator/health && exit 0
-              sleep 5
-            done
-            cd ~/moamoa && docker compose logs --tail=100 app
+            cd ~/moamoa
+            wait_healthy() {
+              for i in $(seq 1 30); do
+                curl -fsS http://localhost:8080/actuator/health && return 0
+                sleep 5
+              done
+              return 1
+            }
+            if wait_healthy; then
+              docker image prune -af
+              exit 0
+            fi
+            docker compose logs --tail=100 app
+            if [ ! -f .env.prev ]; then
+              echo "Health check failed and there is no previous version to roll back to"
+              exit 1
+            fi
+            echo "Health check failed, rolling back to $(grep "^APP_IMAGE=" .env.prev)"
+            mv .env.prev .env
+            docker compose up -d
+            if wait_healthy; then
+              echo "Rollback succeeded"
+            else
+              echo "Rollback failed"
+              docker compose logs --tail=100 app
+            fi
             exit 1'
