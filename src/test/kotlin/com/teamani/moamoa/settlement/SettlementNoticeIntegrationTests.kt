@@ -77,6 +77,7 @@ class SettlementNoticeIntegrationTests : BehaviorSpec() {
                     val notices = noticesOf(meetingId)
                     notices.size shouldBe 1
                     response.noticeId shouldBe notices.single().id
+                    settlementRepository.findById(response.settlementId).orElseThrow().noticeId shouldBe response.noticeId
                     settlementMemberRepository.findAllBySettlementIdOrderByIdAsc(response.settlementId).size shouldBe 3
                 }
             }

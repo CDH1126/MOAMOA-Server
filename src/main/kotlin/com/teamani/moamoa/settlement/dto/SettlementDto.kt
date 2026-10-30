@@ -104,6 +104,30 @@ data class PaymentSummaryResponse(
     val paidAmount: Int
 )
 
+data class PaymentSubmitResponse(
+    val paymentId: Long,
+    val status: PaymentStatus,
+    val submittedAt: OffsetDateTime
+)
+
+data class PaymentApproveResponse(
+    val paymentId: Long,
+    val status: PaymentStatus,
+    val confirmedAt: OffsetDateTime
+)
+
+// 반려 사유는 선택 입력, 요청 본문 없이 반려해도 됨
+data class PaymentRejectRequest(
+    @field:Size(max = 255, message = "반려 사유는 255자 이하여야 합니다.")
+    val reason: String? = null
+)
+
+data class PaymentRejectResponse(
+    val paymentId: Long,
+    val status: PaymentStatus,
+    val rejectionReason: String?
+)
+
 data class PaymentResponse(
     val paymentId: Long,
     val memberId: Long,
