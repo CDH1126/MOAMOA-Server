@@ -3,6 +3,7 @@ package com.teamani.moamoa.settlement.repository
 import com.teamani.moamoa.settlement.entity.CycleType
 import com.teamani.moamoa.settlement.entity.RegularDues
 import com.teamani.moamoa.settlement.entity.Settlement
+import com.teamani.moamoa.settlement.service.RegularDuesService
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
@@ -16,7 +17,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime
 
-// 실제 DB(H2)에서 정기 회비 목록 정렬·모임 필터, 삭제 전 회차 정산 연결 해제를 검증
+// 실제 DB(H2)에서 정기 회비 목록 정렬·모임 필터, 삭제 전 회차 정산 연결 해제와 영속성 컨텍스트 동기화를 검증
 @SpringBootTest
 @ActiveProfiles("test")
 class RegularDuesRepositoryTests : BehaviorSpec() {
@@ -31,6 +32,9 @@ class RegularDuesRepositoryTests : BehaviorSpec() {
 
     @Autowired
     lateinit var transactionTemplate: TransactionTemplate
+
+    @Autowired
+    lateinit var regularDuesService: RegularDuesService
 
     init {
         Given("한 모임의 정기 회비 여러 개와 다른 모임의 정기 회비가 저장되어 있을 때") {
@@ -78,6 +82,43 @@ class RegularDuesRepositoryTests : BehaviorSpec() {
                     remained.regularDuesId.shouldBeNull()
                     remained.billingPeriod shouldBe LocalDate.parse("2026-10-01")
                     settlementRepository.findById(checkNotNull(manual.id)).isPresent shouldBe true
+                }
+            }
+        }
+
+        Given("같은 트랜잭션에서 회차 정산을 이미 조회했을 때") {
+            val meetingId = 9304L
+            val duesId = checkNotNull(regularDuesRepository.save(regularDues(meetingId)).id)
+            val billedId = checkNotNull(
+                settlementRepository.save(settlement(meetingId, duesId, LocalDate.parse("2026-10-01"))).id
+            )
+
+            When("정산 연결을 해제한 뒤 같은 정산을 다시 조회하면") {
+                val regularDuesIdAfterClear = transactionTemplate.execute {
+                    settlementRepository.findById(billedId).orElseThrow()
+                    settlementRepository.clearRegularDuesId(duesId)
+                    settlementRepository.findById(billedId).orElseThrow().regularDuesId
+                }
+
+                Then("해제된 값이 조회된다") {
+                    regularDuesIdAfterClear.shouldBeNull()
+                }
+            }
+        }
+
+        Given("회차 정산이 있는 정기 회비를 Service로 삭제할 때") {
+            val meetingId = 9305L
+            val duesId = checkNotNull(regularDuesRepository.save(regularDues(meetingId)).id)
+            val billedId = checkNotNull(
+                settlementRepository.save(settlement(meetingId, duesId, LocalDate.parse("2026-10-01"))).id
+            )
+
+            When("deleteRegularDues 메서드를 호출하면") {
+                regularDuesService.deleteRegularDues(meetingId, 1L, duesId)
+
+                Then("정기 회비는 삭제되고 회차 정산은 연결만 해제된 채 남는다") {
+                    regularDuesRepository.findById(duesId).isPresent shouldBe false
+                    settlementRepository.findById(billedId).orElseThrow().regularDuesId.shouldBeNull()
                 }
             }
         }

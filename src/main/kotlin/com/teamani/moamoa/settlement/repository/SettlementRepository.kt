@@ -14,7 +14,8 @@ interface SettlementRepository : JpaRepository<Settlement, Long> {
     fun findByIdAndMeetingId(id: Long, meetingId: Long): Settlement?
 
     // 정기 회비 삭제 전 기존 회차 정산과의 연결만 해제 (정산·납부 내역은 유지)
-    @Modifying
+    // 벌크 UPDATE는 영속성 컨텍스트를 거치지 않으므로 실행 전 변경을 반영하고 실행 후 비워 조회 값이 어긋나지 않게 함
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Settlement s set s.regularDuesId = null where s.regularDuesId = :regularDuesId")
     fun clearRegularDuesId(regularDuesId: Long): Int
 }
