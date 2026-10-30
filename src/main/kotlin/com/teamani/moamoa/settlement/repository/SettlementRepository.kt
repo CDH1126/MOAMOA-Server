@@ -4,6 +4,7 @@ import com.teamani.moamoa.settlement.entity.Settlement
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface SettlementRepository : JpaRepository<Settlement, Long> {
@@ -18,4 +19,10 @@ interface SettlementRepository : JpaRepository<Settlement, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from Settlement s where s.id = :id and s.meetingId = :meetingId")
     fun findByIdAndMeetingIdForUpdate(id: Long, meetingId: Long): Settlement?
+
+    // 정기 회비 삭제 전 기존 회차 정산과의 연결만 해제 (정산·납부 내역은 유지)
+    // 벌크 UPDATE는 영속성 컨텍스트를 거치지 않으므로 실행 전 변경을 반영하고 실행 후 비워 조회 값이 어긋나지 않게 함
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Settlement s set s.regularDuesId = null where s.regularDuesId = :regularDuesId")
+    fun clearRegularDuesId(regularDuesId: Long): Int
 }
