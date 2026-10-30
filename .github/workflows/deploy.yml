@@ -125,6 +125,7 @@ jobs:
             cd ~/moamoa
             chmod 600 .env.next
             docker compose --env-file .env.next -f compose.yml config --quiet
+            docker compose --env-file .env.next -f compose.yml pull app
             if [ -f .env ]; then cp -p .env .env.prev; else rm -f .env.prev; fi
             mv .env.next .env
             docker compose up -d'
