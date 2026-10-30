@@ -37,7 +37,10 @@ data class SettlementCreateRequest(
     val accountHolder: String?,
 
     @field:NotNull(message = "납부 기한은 필수입니다.")
-    val dueAt: OffsetDateTime?
+    val dueAt: OffsetDateTime?,
+
+    // 정산 안내 공지 자동 등록 여부 (보내지 않으면 false)
+    val postNotice: Boolean? = null
 )
 
 data class SettlementCreateResponse(
