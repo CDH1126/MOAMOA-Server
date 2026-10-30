@@ -161,7 +161,7 @@ class SettlementService(
         validateMeeting(meetingId)
         validateMember(meetingId, memberId)
 
-        findSettlement(meetingId, settlementId)
+        lockSettlement(meetingId, settlementId)
         val payment = settlementMemberRepository.findBySettlementIdAndMemberId(settlementId, memberId)
             ?: throw ApiException(ErrorCode.FORBIDDEN, "정산 대상 구성원만 납부 완료를 제출할 수 있습니다.")
         if (payment.status != PaymentStatus.UNPAID) {
@@ -184,7 +184,7 @@ class SettlementService(
         validateMeeting(meetingId)
         validateAdmin(meetingId, memberId)
 
-        val settlement = findSettlement(meetingId, settlementId)
+        val settlement = lockSettlement(meetingId, settlementId)
         val payment = findPendingPayment(settlementId, paymentId, "확인 대기 상태의 납부만 승인할 수 있습니다.")
 
         val confirmedAt = OffsetDateTime.now()
@@ -214,7 +214,7 @@ class SettlementService(
         validateMeeting(meetingId)
         validateAdmin(meetingId, memberId)
 
-        findSettlement(meetingId, settlementId)
+        lockSettlement(meetingId, settlementId)
         val payment = findPendingPayment(settlementId, paymentId, "확인 대기 상태의 납부만 반려할 수 있습니다.")
 
         payment.reject(reason)
@@ -228,8 +228,9 @@ class SettlementService(
         )
     }
 
-    private fun findSettlement(meetingId: Long, settlementId: Long): Settlement =
-        settlementRepository.findByIdAndMeetingId(settlementId, meetingId)
+    // 납부 상태를 확인하기 전에 정산을 잠가, 먼저 끝난 요청의 결과를 보고 판단하도록 함 (동시 승인·중복 처리 방지)
+    private fun lockSettlement(meetingId: Long, settlementId: Long): Settlement =
+        settlementRepository.findByIdAndMeetingIdForUpdate(settlementId, meetingId)
             ?: throw ApiException(ErrorCode.NOT_FOUND, "정산을 찾을 수 없습니다.")
 
     // 승인·반려는 확인 대기(PENDING) 상태의 납부 항목만 가능

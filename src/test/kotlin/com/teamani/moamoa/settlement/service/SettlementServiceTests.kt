@@ -281,7 +281,7 @@ class SettlementServiceTests : BehaviorSpec({
     }
 
     Given("정산 대상 구성원이 납부 완료를 제출할 때") {
-        `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement(40L))
+        `when`(settlementRepository.findByIdAndMeetingIdForUpdate(40L, 1L)).thenReturn(settlement(40L))
 
         When("미납 상태이고 이전에 반려된 적이 있으면") {
             val payment = SettlementMember(
@@ -327,7 +327,7 @@ class SettlementServiceTests : BehaviorSpec({
         When("다른 대상자가 아직 완납하지 않았으면") {
             val settlement = settlement(40L)
             val payment = pendingPayment()
-            `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement)
+            `when`(settlementRepository.findByIdAndMeetingIdForUpdate(40L, 1L)).thenReturn(settlement)
             `when`(settlementMemberRepository.findByIdAndSettlementId(81L, 40L)).thenReturn(payment)
             `when`(settlementMemberRepository.findAllBySettlementIdOrderByIdAsc(40L)).thenReturn(
                 listOf(payment, SettlementMember(id = 82L, settlementId = 40L, memberId = 5L, amount = 15000))
@@ -345,7 +345,7 @@ class SettlementServiceTests : BehaviorSpec({
         When("마지막 대상자까지 완납하면") {
             val settlement = settlement(40L)
             val payment = pendingPayment()
-            `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement)
+            `when`(settlementRepository.findByIdAndMeetingIdForUpdate(40L, 1L)).thenReturn(settlement)
             `when`(settlementMemberRepository.findByIdAndSettlementId(81L, 40L)).thenReturn(payment)
             `when`(settlementMemberRepository.findAllBySettlementIdOrderByIdAsc(40L)).thenReturn(
                 listOf(
@@ -361,7 +361,7 @@ class SettlementServiceTests : BehaviorSpec({
         }
 
         When("확인 대기 상태가 아니면") {
-            `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement(40L))
+            `when`(settlementRepository.findByIdAndMeetingIdForUpdate(40L, 1L)).thenReturn(settlement(40L))
             `when`(settlementMemberRepository.findByIdAndSettlementId(81L, 40L)).thenReturn(
                 SettlementMember(id = 81L, settlementId = 40L, memberId = 1L, amount = 15000)
             )
@@ -373,7 +373,7 @@ class SettlementServiceTests : BehaviorSpec({
         }
 
         When("다른 정산의 납부 항목이면") {
-            `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement(40L))
+            `when`(settlementRepository.findByIdAndMeetingIdForUpdate(40L, 1L)).thenReturn(settlement(40L))
             `when`(settlementMemberRepository.findByIdAndSettlementId(999L, 40L)).thenReturn(null)
             val exception = shouldThrow<ApiException> { settlementService.approvePayment(1L, 1L, 40L, 999L) }
 
@@ -384,7 +384,7 @@ class SettlementServiceTests : BehaviorSpec({
     }
 
     Given("관리자가 확인 대기 중인 납부를 반려할 때") {
-        `when`(settlementRepository.findByIdAndMeetingId(40L, 1L)).thenReturn(settlement(40L))
+        `when`(settlementRepository.findByIdAndMeetingIdForUpdate(40L, 1L)).thenReturn(settlement(40L))
 
         When("반려 사유를 함께 보내면") {
             val payment = SettlementMember(id = 81L, settlementId = 40L, memberId = 1L, amount = 15000, status = PaymentStatus.PENDING)
