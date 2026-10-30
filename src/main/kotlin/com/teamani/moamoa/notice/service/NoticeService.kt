@@ -6,10 +6,18 @@ import com.teamani.moamoa.notice.dto.NoticeCreateRequest
 import com.teamani.moamoa.notice.dto.NoticeCreateResponse
 import com.teamani.moamoa.notice.dto.NoticeDeleteResponse
 import com.teamani.moamoa.notice.dto.NoticeDetailResponse
+import com.teamani.moamoa.notice.dto.NoticeListResponse
+import com.teamani.moamoa.notice.dto.NoticeSummaryResponse
+import com.teamani.moamoa.notice.dto.NoticeUpdateRequest
+import com.teamani.moamoa.notice.dto.NoticeUpdateResponse
 import com.teamani.moamoa.notice.entity.Notice
 import com.teamani.moamoa.notice.repository.NoticeRepository
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZoneOffset
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class NoticeService(
@@ -63,15 +71,70 @@ class NoticeService(
     @Transactional(readOnly = true)
     fun getNoticeDetail(meetingId: Long, noticeId: Long, currentUserId: Long): NoticeDetailResponse {
         val notice = noticeRepository.findById(noticeId)
-            .orElseThrow { IllegalArgumentException("공지사항을 찾을 수 없습니다. (ID: $noticeId)") }
-
-        require(notice.meetingId == meetingId) { "해당 모임의 공지사항이 아닙니다." }
+            .filter { it.meetingId == meetingId }
+            .orElseThrow { ApiException(ErrorCode.NOT_FOUND, "공지사항을 찾을 수 없습니다.") }
 
         return NoticeDetailResponse(
             noticeId = checkNotNull(notice.id) { "공지사항 ID가 null입니다." },
             title = notice.title,
             content = notice.content,
-            createdAt = notice.createdAt
+            createdAt = notice.createdAt.withOffsetSameInstant(KST)
         )
+    }
+
+    @Transactional(readOnly = true)
+    fun getNotices(
+        meetingId: Long,
+        page: Int,
+        size: Int,
+        currentUserId: Long
+    ): NoticeListResponse {
+        val pageable = PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+        val noticePage = noticeRepository.findAllByMeetingId(meetingId, pageable)
+
+        val summaries = noticePage.content.map { notice ->
+            NoticeSummaryResponse(
+                noticeId = checkNotNull(notice.id) { "공지사항 ID가 null입니다." },
+                title = notice.title,
+                createdAt = notice.createdAt.withOffsetSameInstant(KST)
+            )
+        }
+
+        return NoticeListResponse(
+            notices = summaries,
+            page = noticePage.number,
+            size = noticePage.size,
+            hasNext = noticePage.hasNext()
+        )
+    }
+
+    @Transactional
+    fun updateNotice(
+        meetingId: Long,
+        noticeId: Long,
+        userId: Long,
+        request: NoticeUpdateRequest
+    ): NoticeUpdateResponse {
+        // ADMIN 권한 검증 (Member 도메인 연동 후속 이슈 처리 예정)
+        validateAdmin(meetingId, userId)
+
+        // 공지가 없거나 다른 모임의 공지면 404
+        val notice = noticeRepository.findById(noticeId)
+            .filter { it.meetingId == meetingId }
+            .orElseThrow { ApiException(ErrorCode.NOT_FOUND, "공지사항을 찾을 수 없습니다.") }
+
+        // 변경 감지(Dirty Checking)로 트랜잭션 종료 시 반영
+        notice.update(request.title?.getOrNull(), request.content?.getOrNull())
+
+        return NoticeUpdateResponse(
+            noticeId = checkNotNull(notice.id) { "공지사항 ID가 null입니다." },
+            title = notice.title,
+            content = notice.content
+        )
+    }
+
+    companion object {
+        // API 명세상 응답 일시는 KST(+09:00)
+        private val KST: ZoneOffset = ZoneOffset.ofHours(9)
     }
 }
