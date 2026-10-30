@@ -312,6 +312,20 @@ class VoteControllerTests : BehaviorSpec() {
                     }
                 }
             }
+            When("같은 구성원의 동시 제출과 충돌하면") {
+                Then("409 CONFLICT를 응답한다") {
+                    `when`(voteService.submitMyVote(1L, USER_ID, 9L, MyVoteSubmitRequest(listOf(firstTime))))
+                        .thenThrow(ApiException(ErrorCode.CONFLICT, "투표 제출 중 충돌이 발생했습니다. 다시 시도해 주세요."))
+
+                    mockMvc.put("/v1/meetings/1/schedules/9/votes/me") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"meetingTimes":["$firstTime"]}"""
+                    }.andExpect {
+                        expectError(409, "CONFLICT")
+                        jsonPath("$.error.message") { value("투표 제출 중 충돌이 발생했습니다. 다시 시도해 주세요.") }
+                    }
+                }
+            }
         }
 
         Given("투표 참여 현황 조회 요청(GET /v1/meetings/{meetingId}/schedules/{scheduleId}/vote-responses)이 주어졌을 때") {

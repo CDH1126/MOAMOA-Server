@@ -8,11 +8,21 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.OffsetDateTime
 
 // 구성원 1명이 후보 시간 1개에 낸 응답 (현재 ERD vote 테이블 기준, 테이블 분리는 후속 작업)
 @Entity
-@Table(name = "vote")
+@Table(
+    name = "vote",
+    uniqueConstraints = [
+        // 같은 구성원이 같은 후보 시간에 응답을 중복 저장하지 않도록 방지 (동시 제출 대비)
+        UniqueConstraint(
+            name = Vote.UK_SCHEDULE_ID_MEMBER_ID_MEETING_TIME,
+            columnNames = ["schedule_id", "member_id", "meeting_time"]
+        ),
+    ],
+)
 class Vote(
     // 응답한 구성원 ID (member PK)
     @Column(nullable = false)
@@ -43,4 +53,10 @@ class Vote(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
-)
+) {
+
+    companion object {
+        // 동시 제출 충돌 판별에 사용하는 unique 제약 이름
+        const val UK_SCHEDULE_ID_MEMBER_ID_MEETING_TIME = "uk_vote_schedule_id_member_id_meeting_time"
+    }
+}

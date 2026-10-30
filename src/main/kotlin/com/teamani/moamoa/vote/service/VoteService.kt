@@ -20,6 +20,8 @@ import com.teamani.moamoa.vote.dto.VoteParticipationResponse
 import com.teamani.moamoa.vote.entity.Vote
 import com.teamani.moamoa.vote.entity.VoteStatus
 import com.teamani.moamoa.vote.repository.VoteRepository
+import org.hibernate.exception.ConstraintViolationException
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -143,18 +145,26 @@ class VoteService(
         // 기존 응답을 지우고 모든 후보를 다시 저장해 created_at을 마지막 제출 시각으로 유지
         val submittedAt = OffsetDateTime.now()
         voteRepository.deleteAllByScheduleIdAndMemberId(scheduleId, myMemberId)
-        voteRepository.saveAll(
-            candidates.map { candidate ->
-                Vote(
-                    memberId = myMemberId,
-                    scheduleId = scheduleId,
-                    meetingTime = candidate.atOffset(KST),
-                    status = if (candidate in selectedTimes) VoteStatus.AVAILABLE else VoteStatus.UNAVAILABLE,
-                    createdAt = submittedAt,
-                    endedAt = voteDeadlineAt
-                )
+        try {
+            voteRepository.saveAllAndFlush(
+                candidates.map { candidate ->
+                    Vote(
+                        memberId = myMemberId,
+                        scheduleId = scheduleId,
+                        meetingTime = candidate.atOffset(KST),
+                        status = if (candidate in selectedTimes) VoteStatus.AVAILABLE else VoteStatus.UNAVAILABLE,
+                        createdAt = submittedAt,
+                        endedAt = voteDeadlineAt
+                    )
+                }
+            )
+        } catch (ex: DataIntegrityViolationException) {
+            // 같은 구성원의 동시 제출로 unique 제약 위반 시에만 409, 그 외 무결성 오류는 그대로 전달
+            if (!ex.violates(Vote.UK_SCHEDULE_ID_MEMBER_ID_MEETING_TIME)) {
+                throw ex
             }
-        )
+            throw ApiException(ErrorCode.CONFLICT, "투표 제출 중 충돌이 발생했습니다. 다시 시도해 주세요.")
+        }
 
         return MyVoteSubmitResponse(
             scheduleId = scheduleId,
@@ -253,6 +263,12 @@ class VoteService(
         if (meetingTimes.map { it.toInstant() }.toSet().size != meetingTimes.size) {
             throw ApiException(ErrorCode.VALIDATION_ERROR, "후보 시간은 중복될 수 없습니다.")
         }
+    }
+
+    // 위반한 제약 이름 확인 (PostgreSQL은 제약 이름 그대로, H2는 "public.<이름> INDEX ..." 형태라 포함 여부로 비교)
+    private fun DataIntegrityViolationException.violates(constraintName: String): Boolean {
+        val violation = cause as? ConstraintViolationException ?: return false
+        return violation.constraintName?.contains(constraintName, ignoreCase = true) == true
     }
 
     companion object {

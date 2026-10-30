@@ -23,6 +23,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import org.hibernate.exception.ConstraintViolationException
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyList
@@ -33,6 +34,8 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.reset
 import org.mockito.Mockito.verify
+import org.springframework.dao.DataIntegrityViolationException
+import java.sql.SQLException
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -98,9 +101,19 @@ class VoteServiceTests : BehaviorSpec({
     }
 
     @Suppress("UNCHECKED_CAST")
+    fun voteCaptor() = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Vote>>
+
+    // 투표 생성 시 저장한 관리자 행
     fun savedVotes(): List<Vote> {
-        val captor = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Vote>>
+        val captor = voteCaptor()
         verify(voteRepository).saveAll(captor.capture())
+        return captor.value
+    }
+
+    // 제출 시 unique 제약 위반을 바로 확인하도록 flush까지 실행해 저장한 행
+    fun submittedVotes(): List<Vote> {
+        val captor = voteCaptor()
+        verify(voteRepository).saveAllAndFlush(captor.capture())
         return captor.value
     }
 
@@ -286,9 +299,9 @@ class VoteServiceTests : BehaviorSpec({
 
                 val order = inOrder(voteRepository)
                 order.verify(voteRepository).deleteAllByScheduleIdAndMemberId(scheduleId, 200L)
-                order.verify(voteRepository).saveAll(anyList<Vote>())
+                order.verify(voteRepository).saveAllAndFlush(anyList<Vote>())
 
-                val votes = savedVotes()
+                val votes = submittedVotes()
                 votes.map { it.meetingTime.toInstant() } shouldContainExactly
                     listOf(firstTime, secondTime, thirdTime).map { it.toInstant() }
                 votes.map { it.status } shouldContainExactly
@@ -308,7 +321,7 @@ class VoteServiceTests : BehaviorSpec({
 
                 val response = voteService.submitMyVote(meetingId, memberUserId, scheduleId, MyVoteSubmitRequest(emptyList()))
 
-                savedVotes().map { it.status }.distinct() shouldContainExactly listOf(VoteStatus.UNAVAILABLE)
+                submittedVotes().map { it.status }.distinct() shouldContainExactly listOf(VoteStatus.UNAVAILABLE)
                 response.meetingTimes.shouldBeEmpty()
             }
         }
@@ -318,7 +331,7 @@ class VoteServiceTests : BehaviorSpec({
 
                 voteService.submitMyVote(meetingId, lateUserId, scheduleId, MyVoteSubmitRequest(listOf(thirdTime)))
 
-                savedVotes().map { it.memberId }.distinct() shouldContainExactly listOf(400L)
+                submittedVotes().map { it.memberId }.distinct() shouldContainExactly listOf(400L)
             }
         }
         When("마감 일시가 지났으면") {
@@ -329,7 +342,7 @@ class VoteServiceTests : BehaviorSpec({
                     voteService.submitMyVote(meetingId, memberUserId, scheduleId, MyVoteSubmitRequest(listOf(firstTime)))
                 }.errorCode shouldBe ErrorCode.UNPROCESSABLE_ENTITY
                 verify(voteRepository, never()).deleteAllByScheduleIdAndMemberId(anyLong(), anyLong())
-                verify(voteRepository, never()).saveAll(anyList<Vote>())
+                verify(voteRepository, never()).saveAllAndFlush(anyList<Vote>())
             }
         }
         When("확정된 일정이면") {
@@ -370,7 +383,7 @@ class VoteServiceTests : BehaviorSpec({
                     voteService.submitMyVote(meetingId, memberUserId, scheduleId, request)
                 }.errorCode shouldBe ErrorCode.VALIDATION_ERROR
                 verify(voteRepository, never()).deleteAllByScheduleIdAndMemberId(anyLong(), anyLong())
-                verify(voteRepository, never()).saveAll(anyList<Vote>())
+                verify(voteRepository, never()).saveAllAndFlush(anyList<Vote>())
             }
         }
         When("표기만 다르고 같은 순간인 시간을 중복으로 보내면") {
@@ -381,6 +394,28 @@ class VoteServiceTests : BehaviorSpec({
                 shouldThrow<ApiException> {
                     voteService.submitMyVote(meetingId, memberUserId, scheduleId, request)
                 }.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+            }
+        }
+        When("같은 구성원의 동시 제출로 응답 unique 제약을 위반하면") {
+            Then("409 CONFLICT 예외로 변환한다") {
+                stubVote(schedule(), adminRows(openDeadline))
+                `when`(voteRepository.saveAllAndFlush(anyList<Vote>()))
+                    .thenThrow(integrityViolation(Vote.UK_SCHEDULE_ID_MEMBER_ID_MEETING_TIME))
+
+                shouldThrow<ApiException> {
+                    voteService.submitMyVote(meetingId, memberUserId, scheduleId, MyVoteSubmitRequest(listOf(firstTime)))
+                }.errorCode shouldBe ErrorCode.CONFLICT
+            }
+        }
+        When("응답 unique 제약이 아닌 무결성 제약에 걸리면") {
+            Then("409로 변환하지 않고 예외를 그대로 전달한다") {
+                stubVote(schedule(), adminRows(openDeadline))
+                `when`(voteRepository.saveAllAndFlush(anyList<Vote>()))
+                    .thenThrow(integrityViolation("fk_vote_member_id"))
+
+                shouldThrow<DataIntegrityViolationException> {
+                    voteService.submitMyVote(meetingId, memberUserId, scheduleId, MyVoteSubmitRequest(listOf(firstTime)))
+                }
             }
         }
         When("투표가 없는 일정이면") {
@@ -519,3 +554,9 @@ class VoteServiceTests : BehaviorSpec({
         }
     }
 })
+
+// Spring이 Hibernate 제약 위반 예외를 감싸는 형태 그대로 생성
+private fun integrityViolation(constraintName: String) = DataIntegrityViolationException(
+    "could not execute statement",
+    ConstraintViolationException("could not execute statement", SQLException(), constraintName)
+)
