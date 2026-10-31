@@ -12,6 +12,7 @@ import com.teamani.moamoa.member.entity.MemberRole
 import com.teamani.moamoa.member.repository.MeetingMemberCount
 import com.teamani.moamoa.member.repository.MemberRepository
 import com.teamani.moamoa.member.service.MemberService
+import com.teamani.moamoa.vote.repository.VoteRepository
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -39,7 +40,7 @@ class MeetingServiceTests : BehaviorSpec({
 
     val meetingRepository: MeetingRepository = mock(MeetingRepository::class.java)
     val memberRepository: MemberRepository = mock(MemberRepository::class.java)
-    val memberService = MemberService(meetingRepository, memberRepository)
+    val memberService = MemberService(meetingRepository, memberRepository, mock(VoteRepository::class.java))
     val meetingService = MeetingService(meetingRepository, memberRepository, memberService)
 
     val meetingId = 1L
