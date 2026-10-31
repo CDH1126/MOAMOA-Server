@@ -40,6 +40,20 @@ function hasContent(value = '') {
   });
 }
 
+function hasChecklistItem(value) {
+  let fence;
+  for (const line of value.split('\n')) {
+    const delimiter = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (delimiter) {
+      if (!fence) fence = delimiter[1];
+      else if (delimiter[1][0] === fence[0] && delimiter[1].length >= fence.length && !line.slice(delimiter[0].length).trim()) fence = undefined;
+      continue;
+    }
+    if (!fence && /^ {0,3}[-*+]\s+\[[ xX]\]\s+\S.*/.test(line)) return true;
+  }
+  return false;
+}
+
 function validate(kind, { title = '', body = '' }) {
   const errors = [];
   const parts = sections(body);
@@ -57,7 +71,7 @@ function validate(kind, { title = '', body = '' }) {
       errors.push(`Issue 제목 오류: [TYPE] 작업 내용 형식으로 작성해 주세요. 허용 TYPE: ${ISSUE_TYPES.join(', ')}.`);
     }
     if (parts.has('설명') && !hasContent(parts.get('설명'))) errors.push('Issue 본문 오류: 설명 내용을 작성해 주세요.');
-    if (parts.has('할 일') && !/^\s*[-*+]\s+\[[ xX]\]\s+\S.*/m.test(parts.get('할 일'))) {
+    if (parts.has('할 일') && !hasChecklistItem(parts.get('할 일'))) {
       errors.push('Issue 본문 오류: 할 일에 최소 한 개의 체크리스트 항목을 작성해 주세요.');
     }
   } else {
@@ -70,6 +84,7 @@ function validate(kind, { title = '', body = '' }) {
     if (!references.length) errors.push('PR 본문 오류: 관련 이슈에 close #12, closes #12, fixes #12 또는 refs #12를 작성해 주세요.');
     if (issue && references.length && !references.includes(issue[1])) errors.push('PR 본문 오류: 제목의 이슈 번호가 관련 이슈 목록에 없습니다.');
     if (parts.has('작업 내용') && !hasContent(parts.get('작업 내용'))) errors.push('PR 본문 오류: 작업 내용을 작성해 주세요.');
+    if (parts.has('체크리스트') && !hasChecklistItem(parts.get('체크리스트'))) errors.push('PR 본문 오류: 체크리스트에 최소 한 개의 체크리스트 항목을 작성해 주세요.');
     const test = ['테스트', '테스트 및 검증'].filter(name => parts.has(name));
     // A filled command label alone is not a result or a reason for skipping.
     const hasResult = name => hasContent(parts.get(name)

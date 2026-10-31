@@ -44,9 +44,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
           sparse-checkout: .github/scripts
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
-            await require('./.github/scripts/convention-check.cjs').run({ github, context, core });
+            const script = './.github/scripts/convention-check.cjs';
+            if (!require('node:fs').existsSync(script)) {
+              core.setFailed('기본 브랜치에 검수 스크립트가 없습니다. 선행 스크립트·테스트 반영 후 PR 기준 브랜치를 갱신해 주세요.');
+              return;
+            }
+            await require(script).run({ github, context, core });
+
+  script-tests:
+    if: github.event_name == 'pull_request'
+    name: Convention Script Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Test candidate convention script
+        run: node --test .github/scripts/convention-check.test.cjs
