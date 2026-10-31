@@ -49,7 +49,7 @@ function hasChecklistItem(value) {
       else if (delimiter[1][0] === fence[0] && delimiter[1].length >= fence.length && !line.slice(delimiter[0].length).trim()) fence = undefined;
       continue;
     }
-    if (!fence && /^\s*[-*+]\s+\[[ xX]\]\s+\S.*/.test(line)) return true;
+    if (!fence && /^ {0,3}[-*+]\s+\[[ xX]\]\s+\S.*/.test(line)) return true;
   }
   return false;
 }
