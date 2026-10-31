@@ -43,8 +43,13 @@ class AttendanceService(
         val items = requireNotNull(request.attendances) { "출석 목록은 1개 이상이어야 합니다." }
             .map { requireNotNull(it) { "출석 항목은 null일 수 없습니다." } }
         val memberIds = items.map { requireNotNull(it.memberId) { "구성원 ID는 필수입니다." } }
-        if (memberIds.toSet().size != memberIds.size) {
-            throw ApiException(ErrorCode.VALIDATION_ERROR, "같은 구성원을 중복으로 처리할 수 없습니다.")
+
+        // 하위 리소스 404 → 상태 422 → 그 외 400 순서로 확인 (README 예외 처리 규칙)
+        val meetingMemberIds = memberRepository.findAllByMeetingIdOrderByIdAsc(meetingId)
+            .map { checkNotNull(it.id) { "구성원 식별자가 없습니다." } }
+            .toSet()
+        if (!meetingMemberIds.containsAll(memberIds)) {
+            throw ApiException(ErrorCode.NOT_FOUND, "모임 구성원을 찾을 수 없습니다.")
         }
 
         // 일정 시작 전후와 관계없이 상태로만 판단 (투표 중 일정의 시작 일시는 임시 값)
@@ -52,11 +57,8 @@ class AttendanceService(
             throw ApiException(ErrorCode.UNPROCESSABLE_ENTITY, "취소되었거나 투표 중인 일정은 출석을 처리할 수 없습니다.")
         }
 
-        val meetingMemberIds = memberRepository.findAllByMeetingIdOrderByIdAsc(meetingId)
-            .map { checkNotNull(it.id) { "구성원 식별자가 없습니다." } }
-            .toSet()
-        if (!meetingMemberIds.containsAll(memberIds)) {
-            throw ApiException(ErrorCode.NOT_FOUND, "모임 구성원을 찾을 수 없습니다.")
+        if (memberIds.toSet().size != memberIds.size) {
+            throw ApiException(ErrorCode.VALIDATION_ERROR, "같은 구성원을 중복으로 처리할 수 없습니다.")
         }
 
         // 요청 값은 DTO 검증(@Pattern)을 통과한 저장 상태 이름만 들어옴

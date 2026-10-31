@@ -201,14 +201,14 @@ class AttendanceServiceTests : BehaviorSpec({
             }
         }
         When("취소된 일정에 같은 memberId를 두 번 보내면") {
-            Then("중복 검사가 먼저라 400 VALIDATION_ERROR 예외가 발생한다") {
+            Then("상태 검사가 먼저라 422 UNPROCESSABLE_ENTITY 예외가 발생한다") {
                 stubSchedule(schedule(ScheduleStatus.CANCELED))
 
                 shouldThrow<ApiException> {
                     attendanceService.updateAttendances(
                         meetingId, adminUserId, scheduleId, request(200L to "PRESENT", 200L to "LATE")
                     )
-                }.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+                }.errorCode shouldBe ErrorCode.UNPROCESSABLE_ENTITY
             }
         }
         When("취소된 일정이면") {
@@ -233,14 +233,14 @@ class AttendanceServiceTests : BehaviorSpec({
             }
         }
         When("취소된 일정에 모임 구성원이 아닌 memberId를 보내면") {
-            Then("상태 검사가 먼저라 422 UNPROCESSABLE_ENTITY 예외가 발생한다") {
+            Then("구성원 검사가 먼저라 404 NOT_FOUND 예외가 발생한다") {
                 stubSchedule(schedule(ScheduleStatus.CANCELED))
 
                 shouldThrow<ApiException> {
                     attendanceService.updateAttendances(
                         meetingId, adminUserId, scheduleId, request(outsiderMemberId to "PRESENT")
                     )
-                }.errorCode shouldBe ErrorCode.UNPROCESSABLE_ENTITY
+                }.errorCode shouldBe ErrorCode.NOT_FOUND
             }
         }
         When("모임 구성원이 아닌 memberId가 하나라도 포함되어 있으면") {
