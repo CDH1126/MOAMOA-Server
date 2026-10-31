@@ -9,9 +9,11 @@ import com.teamani.moamoa.member.repository.MemberRepository
 import com.teamani.moamoa.schedule.entity.Schedule
 import com.teamani.moamoa.schedule.entity.ScheduleStatus
 import com.teamani.moamoa.schedule.repository.ScheduleRepository
+import com.teamani.moamoa.vote.dto.MyVoteSubmitRequest
 import com.teamani.moamoa.vote.entity.Vote
 import com.teamani.moamoa.vote.entity.VoteStatus
 import com.teamani.moamoa.vote.repository.VoteRepository
+import com.teamani.moamoa.vote.service.VoteService
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactly
@@ -27,6 +29,7 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -53,6 +56,12 @@ class VoteIntegrationTests : BehaviorSpec() {
 
     @Autowired
     lateinit var voteRepository: VoteRepository
+
+    @Autowired
+    lateinit var voteService: VoteService
+
+    @Autowired
+    lateinit var transactionTemplate: TransactionTemplate
 
     private val firstTime = OffsetDateTime.parse("2026-11-01T19:00:00+09:00")
     private val secondTime = OffsetDateTime.parse("2026-11-02T19:00:00+09:00")
@@ -173,6 +182,47 @@ class VoteIntegrationTests : BehaviorSpec() {
                     mockMvc.get("/v1/meetings/$meetingId/schedules/$scheduleId/candidates").andExpect {
                         status { isNotFound() }
                         jsonPath("$.error.code") { value("NOT_FOUND") }
+                    }
+                }
+            }
+        }
+
+        Given("한 트랜잭션 안에서 같은 구성원이 투표를 다시 제출할 때") {
+            When("이전 제출로 저장한 행을 id로 다시 조회하면") {
+                Then("벌크 삭제 후 영속성 컨텍스트가 비워져 삭제된 행이 조회되지 않고 후보 수만큼만 남는다") {
+                    val meetingId = checkNotNull(meetingRepository.save(Meeting(name = "모아모아", inviteCode = "VOTE0004")).id)
+                    val adminMemberId = checkNotNull(
+                        memberRepository.save(Member(meetingId = meetingId, userId = 99L, role = MemberRole.ADMIN)).id
+                    )
+                    val memberId = checkNotNull(
+                        memberRepository.save(Member(meetingId = meetingId, userId = USER_ID, role = MemberRole.MEMBER)).id
+                    )
+                    val scheduleId = checkNotNull(
+                        scheduleRepository.save(
+                            Schedule(
+                                meetingId = meetingId,
+                                title = "11월 정기 모임",
+                                startsAt = firstTime,
+                                status = ScheduleStatus.VOTING
+                            )
+                        ).id
+                    )
+                    val deadline = OffsetDateTime.now().plusDays(1)
+                    voteRepository.saveAll(
+                        listOf(firstTime, secondTime).map {
+                            Vote(adminMemberId, scheduleId, it, VoteStatus.PENDING, endedAt = deadline)
+                        }
+                    )
+
+                    transactionTemplate.executeWithoutResult {
+                        voteService.submitMyVote(meetingId, USER_ID, scheduleId, MyVoteSubmitRequest(listOf(firstTime)))
+                        val previousIds = votesOf(scheduleId, memberId).map { checkNotNull(it.id) }
+
+                        voteService.submitMyVote(meetingId, USER_ID, scheduleId, MyVoteSubmitRequest(listOf(secondTime)))
+
+                        previousIds.map { voteRepository.findById(it).isPresent }.distinct() shouldContainExactly listOf(false)
+                        votesOf(scheduleId, memberId).map { it.status } shouldContainExactly
+                            listOf(VoteStatus.UNAVAILABLE, VoteStatus.AVAILABLE)
                     }
                 }
             }

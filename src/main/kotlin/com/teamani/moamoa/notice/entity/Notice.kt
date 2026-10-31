@@ -9,7 +9,7 @@ import jakarta.persistence.Table
 import java.time.OffsetDateTime
 
 @Entity
-@Table(name = "notices")
+@Table(name = "notice")
 class Notice(
     // 공지가 속한 모임 ID
     @Column(nullable = false)
@@ -39,4 +39,11 @@ class Notice(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
-)
+) {
+
+    // 전달된 값만 변경 (null이면 기존 값 유지)
+    fun update(title: String?, content: String?) {
+        title?.let { this.title = it }
+        content?.let { this.content = it }
+    }
+}

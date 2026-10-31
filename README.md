@@ -375,6 +375,20 @@ feat: 모임 생성 API 구현 (#12)
 - API 변경이 있다면 요청/응답 또는 명세 변경 내용을 PR에 함께 남깁니다.
 - DB Schema 변경이 있다면 Migration과 영향 범위를 함께 확인합니다.
 
+#### 3-4. Issue·PR 컨벤션 자동 검수
+
+- Issue 생성·제목/본문 수정·재오픈 시 `Issue Convention Check`가 제목 TYPE, 설명, 할 일의 체크리스트를 확인합니다. 버그 추가 양식은 자동 검수에서 강제하지 않습니다.
+- `main` 대상 PR의 생성·수정·재오픈·커밋 추가·리뷰 준비 전환 시 `PR Convention Check`가 제목 type·설명·이슈 번호와 본문의 관련 이슈·작업 내용·테스트·체크리스트 섹션을 확인합니다. 체크리스트는 내용이 있는 체크박스가 최소 1개 있어야 하며, 주석·코드 예시만 있는 경우는 통과하지 않습니다.
+- 헤딩은 `##`·`###`, 이모지 유무를 허용합니다. `테스트`와 조직 공통 템플릿의 `테스트 및 검증`을 모두 지원하며 실행 결과 또는 미실행 사유를 작성합니다. 관련 이슈는 `close`·`closes`·`fixes`·`refs #번호`(대소문자 무관)를 사용하고 제목의 이슈 번호를 포함합니다.
+- 위반 사항은 Actions 오류 Annotation·Summary와 한국어 안내 댓글로 표시합니다. 추가 실패는 같은 봇 댓글을 수정하고, 통과하면 기존 댓글을 통과 안내로 갱신합니다. 처음부터 통과하면 댓글을 만들지 않습니다.
+- Fork PR 검수는 읽기 전용으로 실행합니다. 별도 `workflow_run` 피드백은 GitHub API로 원본 실행의 저장소·브랜치·커밋과 일치하는 PR을 확인하고 최신 본문을 다시 검수합니다. 쓰기 권한 작업은 기본 브랜치의 스크립트만 실행하며 PR 코드·아티팩트를 실행하지 않습니다.
+- 운영 PR 검수는 이벤트의 `pull_request.base.sha`에 있는 스크립트를 사용합니다. 기본 브랜치에 스크립트가 없으면 실패하며 PR 코드로 대체하지 않습니다. 검수 코드를 수정하는 PR도 병합 전에는 기존 기본 브랜치 규칙으로 판정합니다.
+- `Convention Script Tests`는 PR의 후보 스크립트·테스트를 별도 Job에서 실행합니다. 권한은 `contents: read`만 사용하고 추가 Secret·댓글 쓰기 권한을 제공하지 않으며 Checkout 자격증명도 유지하지 않습니다. 로컬에서는 `node --test .github/scripts/convention-check.test.cjs`로 같은 테스트를 실행합니다.
+- 최초 도입은 스크립트·테스트만 담은 선행 PR을 리뷰 후 `main`에 먼저 반영하고, PR #71을 최신 `main` 기준으로 갱신해 중복된 스크립트·테스트 Diff를 제거한 뒤 워크플로·README를 반영합니다. 두 PR 본문은 `Refs #70`을 사용하며 실제 Issue·Fork PR 댓글 검증을 완료한 뒤 #70 종료 여부를 판단합니다.
+- `workflow_run` 댓글 피드백은 기본 브랜치에 워크플로가 반영된 뒤 실제 이벤트로 확인합니다. Fork 기여자의 Actions 실행 승인 정책에 따라 관리자 승인이 필요할 수 있습니다. 검수·댓글 작업은 직렬화하고 오래된 커밋의 PR 피드백은 생략합니다.
+- 이 기능의 Required Status Check는 `PR Convention Check`만 지정합니다. `Issue Convention Check`, `PR Convention Feedback`, `Convention Script Tests`는 병합 제한에 사용하지 않습니다. 기존 Gradle Test와 보호 정책은 이 작업에서 변경하지 않습니다. 실제 필수 체크·워크플로 변경 리뷰 보호 설정은 #6에서 별도로 처리합니다. 스크립트 고정만으로 워크플로 자체의 변경을 통한 우회까지 방지하지는 않습니다.
+- 본문 형식 검수는 실제 테스트 성공·리뷰 승인·체크리스트 전체 완료를 판정하지 않습니다. 실제 테스트는 기존 `Gradle Test`가 담당하며, 기존 배포 CI와 보호 규칙은 변경하지 않습니다. 공개 저장소의 표준 `ubuntu-latest` Runner와 기본 `GITHUB_TOKEN`만 사용하고 외부 AI API·신규 Secret·아티팩트 저장소는 사용하지 않습니다.
+
 ---
 
 ## 프로젝트 아키텍처
@@ -428,8 +442,16 @@ src/
 - Controller에는 HTTP 요청/응답 처리 책임만 둡니다.
 - 비즈니스 규칙은 Controller에 직접 작성하지 않습니다.
 - API 응답에는 Entity를 직접 노출하기보다 DTO 사용을 권장합니다.
-- TODO: DTO·Entity 명명, Service·Repository 구성, 예외 처리 방식과 공통 API 응답 형식은 실제 기능 구현 시 정리합니다.
+- TODO: DTO·Entity 명명, Service·Repository 구성과 공통 API 응답 형식은 실제 기능 구현 시 정리합니다.
 - 트랜잭션 범위는 비즈니스 작업 단위를 기준으로 명확하게 설정합니다.
+
+#### 예외 처리와 에러 코드
+
+- 사용자 요청 때문에 생기는 오류(없는 리소스, 권한 없음, 잘못된 상태 등)는 `ApiException`과 `ErrorCode`로만 던집니다. `IllegalArgumentException`, `IllegalStateException`, `require`, `check`, `ResponseStatusException`, `@ResponseStatus`를 붙인 예외 클래스는 전역 예외 처리기에서 500으로 응답되므로 이런 오류에 사용하지 않습니다.
+- `requireNotNull`, `checkNotNull`은 DTO 검증을 통과한 값이나 저장된 엔티티의 id처럼 null이 될 수 없는 값을 꺼낼 때만 사용합니다. (발생하면 서버 버그이므로 500이 맞습니다)
+- 두 필드 이상을 비교하는 검증(예: 종료 일시가 시작 일시보다 이전, 대상 중복)은 Service에서 합니다. DTO의 `@AssertTrue`는 에러 응답의 field가 요청에 없는 이름으로 나가므로 사용하지 않습니다.
+- 오류는 다음 순서로 확인합니다: 요청 형식 400 → 모임 없음·삭제됨 404 → 권한 403 → 하위 리소스 404 → 상태 422 → 그 외 400·409
+- 요청 본문에 담긴 ID(예: `memberIds`)가 해당 모임에 속하지 않으면 404 `NOT_FOUND`입니다.
 
 ### 4. 테스트
 

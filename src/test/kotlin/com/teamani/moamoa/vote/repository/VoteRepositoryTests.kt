@@ -2,6 +2,7 @@ package com.teamani.moamoa.vote.repository
 
 import com.teamani.moamoa.vote.entity.Vote
 import com.teamani.moamoa.vote.entity.VoteStatus
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -10,8 +11,10 @@ import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.context.ActiveProfiles
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -34,6 +37,37 @@ class VoteRepositoryTests : BehaviorSpec() {
         Vote(memberId = memberId, scheduleId = scheduleId, meetingTime = meetingTime, status = status, endedAt = deadline)
 
     init {
+        Given("같은 일정·구성원·후보 시간의 응답이 이미 있을 때") {
+            When("같은 후보 시간으로 다시 저장하면") {
+                Then("unique 제약 위반 예외가 발생한다") {
+                    voteRepository.saveAndFlush(vote(500L, 8L, firstTime, VoteStatus.AVAILABLE))
+
+                    shouldThrow<DataIntegrityViolationException> {
+                        voteRepository.saveAndFlush(vote(500L, 8L, firstTime, VoteStatus.UNAVAILABLE))
+                    }
+                }
+            }
+            When("표기만 다르고 같은 순간인 후보 시간으로 저장하면") {
+                Then("같은 후보 시간으로 보고 unique 제약 위반 예외가 발생한다") {
+                    voteRepository.saveAndFlush(vote(510L, 8L, firstTime, VoteStatus.AVAILABLE))
+                    val sameInstant = firstTime.withOffsetSameInstant(ZoneOffset.UTC)
+
+                    shouldThrow<DataIntegrityViolationException> {
+                        voteRepository.saveAndFlush(vote(510L, 8L, sameInstant, VoteStatus.UNAVAILABLE))
+                    }
+                }
+            }
+            When("다른 구성원이나 다른 후보 시간으로 저장하면") {
+                Then("정상 저장된다") {
+                    voteRepository.saveAndFlush(vote(520L, 8L, firstTime, VoteStatus.AVAILABLE))
+                    voteRepository.saveAndFlush(vote(521L, 8L, firstTime, VoteStatus.AVAILABLE))
+                    voteRepository.saveAndFlush(vote(520L, 8L, secondTime, VoteStatus.UNAVAILABLE))
+
+                    voteRepository.findAllByScheduleId(8L).filter { it.memberId in listOf(520L, 521L) }.size shouldBe 3
+                }
+            }
+        }
+
         Given("여러 일정에 투표 응답이 있을 때") {
             When("일정 ID로 조회하면") {
                 Then("해당 일정의 행만 반환한다") {
