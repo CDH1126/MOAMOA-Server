@@ -121,7 +121,7 @@ class VoteService(
     ): MyVoteSubmitResponse {
         val me = memberService.validateMember(meetingId, userId)
         val myMemberId = checkNotNull(me.id) { "구성원 식별자가 없습니다." }
-        val schedule = findSchedule(meetingId, scheduleId)
+        val schedule = findScheduleForUpdate(meetingId, scheduleId)
         val votes = findVotes(scheduleId)
         val voteDeadlineAt = votes.first().endedAt
 
@@ -159,7 +159,8 @@ class VoteService(
                 }
             )
         } catch (ex: DataIntegrityViolationException) {
-            // 같은 구성원의 동시 제출로 unique 제약 위반 시에만 409, 그 외 무결성 오류는 그대로 전달
+            // 같은 일정의 제출은 일정 잠금으로 순서대로 처리되며, unique 제약 위반은 안전장치로 409 변환
+            // 그 외 무결성 오류는 그대로 전달
             if (!ex.violates(Vote.UK_SCHEDULE_ID_MEMBER_ID_MEETING_TIME)) {
                 throw ex
             }
@@ -211,7 +212,7 @@ class VoteService(
         request: VoteConfirmRequest
     ): VoteConfirmResponse {
         memberService.validateAdmin(meetingId, userId)
-        val schedule = findSchedule(meetingId, scheduleId)
+        val schedule = findScheduleForUpdate(meetingId, scheduleId)
         val votes = findVotes(scheduleId)
 
         // 마감 전에도 확정 가능, 이미 확정·취소된 일정은 변경 불가
@@ -239,6 +240,11 @@ class VoteService(
     // 다른 모임의 일정도 존재하지 않는 투표로 처리
     private fun findSchedule(meetingId: Long, scheduleId: Long): Schedule =
         scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)
+            ?: throw ApiException(ErrorCode.NOT_FOUND, VOTE_NOT_FOUND_MESSAGE)
+
+    // 제출·확정은 일정 행을 잠근 뒤 읽어, 같은 일정의 앞선 요청이 끝난 뒤의 상태로 검사
+    private fun findScheduleForUpdate(meetingId: Long, scheduleId: Long): Schedule =
+        scheduleRepository.findByIdAndMeetingIdForUpdate(scheduleId, meetingId)
             ?: throw ApiException(ErrorCode.NOT_FOUND, VOTE_NOT_FOUND_MESSAGE)
 
     // 투표 행이 없는 일정(직접 등록한 일정)은 투표가 없는 것으로 판단

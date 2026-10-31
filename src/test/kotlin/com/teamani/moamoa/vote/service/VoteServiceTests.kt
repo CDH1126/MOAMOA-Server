@@ -95,8 +95,10 @@ class VoteServiceTests : BehaviorSpec({
     fun adminRows(endedAt: OffsetDateTime) =
         listOf(firstTime, secondTime, thirdTime).map { vote(100L, it, VoteStatus.PENDING, endedAt) }
 
+    // 조회 API는 일반 조회, 제출·확정은 잠금 조회로 일정을 읽으므로 둘 다 같은 일정 반환
     fun stubVote(schedule: Schedule, votes: List<Vote>) {
         `when`(scheduleRepository.findByIdAndMeetingId(scheduleId, meetingId)).thenReturn(schedule)
+        `when`(scheduleRepository.findByIdAndMeetingIdForUpdate(scheduleId, meetingId)).thenReturn(schedule)
         `when`(voteRepository.findAllByScheduleId(scheduleId)).thenReturn(votes)
     }
 
@@ -297,6 +299,7 @@ class VoteServiceTests : BehaviorSpec({
 
                 val response = voteService.submitMyVote(meetingId, memberUserId, scheduleId, request)
 
+                verify(scheduleRepository).findByIdAndMeetingIdForUpdate(scheduleId, meetingId)
                 val order = inOrder(voteRepository)
                 order.verify(voteRepository).deleteAllByScheduleIdAndMemberId(scheduleId, 200L)
                 order.verify(voteRepository).saveAllAndFlush(anyList<Vote>())
@@ -496,6 +499,7 @@ class VoteServiceTests : BehaviorSpec({
 
                 val response = voteService.confirmVote(meetingId, adminUserId, scheduleId, request)
 
+                verify(scheduleRepository).findByIdAndMeetingIdForUpdate(scheduleId, meetingId)
                 votingSchedule.status shouldBe ScheduleStatus.CONFIRMED
                 votingSchedule.startsAt.toInstant() shouldBe secondTime.toInstant()
                 response.scheduleId shouldBe scheduleId
