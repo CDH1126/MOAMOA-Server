@@ -72,6 +72,15 @@ class AttendanceRepositoryTests : BehaviorSpec() {
                     attendanceRepository.findAllByScheduleId(4L).map { it.memberId } shouldContainExactlyInAnyOrder emptyList()
                 }
             }
+            When("영속성 컨텍스트에 올라온 기록을 일괄 삭제한 뒤 id로 다시 조회하면") {
+                Then("벌크 삭제 후 영속성 컨텍스트가 비워져 삭제된 기록이 조회되지 않는다") {
+                    val saved = attendanceRepository.saveAndFlush(attendance(800L, 8L, AttendanceStatus.PRESENT))
+
+                    attendanceRepository.deleteAllByMemberId(800L) shouldBe 1
+
+                    attendanceRepository.findById(checkNotNull(saved.id)).isPresent shouldBe false
+                }
+            }
         }
 
         Given("출석 기록의 상태를 바꿀 때") {
