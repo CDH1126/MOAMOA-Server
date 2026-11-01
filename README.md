@@ -91,13 +91,14 @@ Copy-Item .env.example .env
 
 #### 1-5. 환경 변수 및 민감 정보
 
-서버 실행에는 다음 DB 설정이 필요합니다. 로컬 개발에서는 `.env.example`을 저장소 루트의 `.env`로 복사하고 실제 접속 정보로 수정합니다. 예제 비밀번호 `change-me`는 실제 DB 비밀번호로 바꿔야 합니다.
+서버 실행에는 다음 DB·JWT 설정이 필요합니다. 로컬 개발에서는 `.env.example`을 저장소 루트의 `.env`로 복사하고 실제 접속 정보로 수정합니다. 예제 비밀번호 `change-me`는 실제 DB 비밀번호로 바꿔야 합니다.
 
 | 변수 | 용도 | 예시 |
 | --- | --- | --- |
 | `DB_URL` | PostgreSQL JDBC 접속 URL | `jdbc:postgresql://localhost:5432/moamoa` |
 | `DB_USERNAME` | DB 사용자 이름 | `postgres` |
 | `DB_PASSWORD` | DB 비밀번호 | 실제 DB 비밀번호 |
+| `JWT_SECRET` | JWT 서명 키 (32자 이상) | 임의의 긴 문자열 |
 
 `application.yml`은 실행 작업 디렉터리의 `.env`를 Java Properties 형식으로 읽습니다. 저장소 루트에서 실행하고, IntelliJ 실행 설정의 Working directory도 저장소 루트로 지정합니다.
 
