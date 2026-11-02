@@ -7,3 +7,10 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+server:
+  # Nginx가 전달한 X-Forwarded-* 헤더(/api 접두어·https)를 요청 URL에 반영
+  forward-headers-strategy: framework
+moamoa:
+  cors:
+    # 쉼표로 구분, 배포 환경에서는 CORS_ALLOWED_ORIGINS 환경변수로 변경 가능
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://moamoa-sandbox.aandiclub.com}
