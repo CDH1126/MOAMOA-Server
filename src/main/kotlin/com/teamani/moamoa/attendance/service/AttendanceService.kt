@@ -109,7 +109,7 @@ class AttendanceService(
             val memberId = checkNotNull(member.id) { "구성원 식별자가 없습니다." }
             AttendanceMemberResponse(
                 memberId = memberId,
-                nickname = null,
+                userName = null,
                 status = AttendanceViewStatus.from(statusByMemberId[memberId])
             )
         }

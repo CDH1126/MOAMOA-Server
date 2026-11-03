@@ -297,7 +297,7 @@ class AttendanceServiceTests : BehaviorSpec({
                 response.attendances.map { it.memberId } shouldContainExactly listOf(100L, 200L, 300L)
                 response.attendances.map { it.status } shouldContainExactly
                     listOf(AttendanceViewStatus.PRESENT, AttendanceViewStatus.LATE, AttendanceViewStatus.UNCHECKED)
-                response.attendances.map { it.nickname } shouldContainExactly listOf(null, null, null)
+                response.attendances.map { it.userName } shouldContainExactly listOf(null, null, null)
             }
         }
         When("결석으로 체크된 구성원이 있으면") {
