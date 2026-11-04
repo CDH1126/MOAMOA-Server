@@ -56,7 +56,7 @@ git remote add upstream https://github.com/Team-AnI/MOAMOA-Server.git
 
 # 로컬 PostgreSQL 서버와 moamoa DB를 준비한 뒤 접속 정보 설정
 cp .env.example .env
-# .env의 DB_URL, DB_USERNAME, DB_PASSWORD를 실제 접속 정보로 수정
+# .env의 DB_URL, DB_USERNAME, DB_PASSWORD를 실제 접속 정보로, JWT_SECRET을 임의 문자열로 수정
 
 # 애플리케이션 실행
 ./gradlew bootRun
@@ -98,15 +98,17 @@ Copy-Item .env.example .env
 | `DB_URL` | PostgreSQL JDBC 접속 URL | `jdbc:postgresql://localhost:5432/moamoa` |
 | `DB_USERNAME` | DB 사용자 이름 | `postgres` |
 | `DB_PASSWORD` | DB 비밀번호 | 실제 DB 비밀번호 |
-| `JWT_SECRET` | JWT 서명 키 (32자 이상) | 임의의 긴 문자열 |
+| `JWT_SECRET` | JWT 서명 키 (32바이트 이상) | 임의의 긴 문자열 |
 
 `application.yml`은 실행 작업 디렉터리의 `.env`를 Java Properties 형식으로 읽습니다. 저장소 루트에서 실행하고, IntelliJ 실행 설정의 Working directory도 저장소 루트로 지정합니다.
 
 - 비밀번호, API Key, Access Token, Secret Key 등 민감 정보는 Git에 커밋하지 않습니다.
 - `.env`는 Git에서 제외하고, 실제 비밀값이 없는 `.env.example`만 공유합니다.
 - 파일은 `KEY=value` 형식을 사용합니다. `export`나 값을 감싸는 따옴표를 사용하지 않습니다. 따옴표는 값에 포함되며, 리터럴 역슬래시는 `\\`로 작성합니다.
-- OS 환경변수로 주입한 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`는 `.env` 값보다 우선합니다. 배포 환경에서는 `.env` 없이 환경변수로 설정할 수 있습니다.
-- DB 설정에 기본값은 없습니다. `.env` 파일 자체는 선택 사항이지만, 서버 실행 시 세 변수는 모두 제공해야 합니다.
+- OS 환경변수로 주입한 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`은 `.env` 값보다 우선합니다. 배포 환경에서는 `.env` 없이 환경변수로 설정할 수 있습니다.
+- DB·JWT 설정에 기본값은 없습니다. `.env` 파일 자체는 선택 사항이지만, 서버 실행 시 네 변수는 모두 제공해야 합니다.
+- `JWT_SECRET`이 32바이트보다 짧으면 서버가 시작되지 않습니다. PC마다 임의 문자열을 만들어 각자의 `.env`에 넣고, 다른 사람과 공유하지 않습니다.
+- 운영 서버의 `JWT_SECRET`은 GitHub `production` Environment secret `PROD_JWT_SECRET`으로 관리하며, 배포 워크플로가 `JWT_SECRET`으로 전달합니다.
 - `./gradlew test`는 테스트 전용 H2 설정을 사용하므로 `.env`와 PostgreSQL 서버 없이 실행할 수 있습니다.
 
 ### 2. 작업 흐름
