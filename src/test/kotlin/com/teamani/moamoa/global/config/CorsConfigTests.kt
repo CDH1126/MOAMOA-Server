@@ -31,11 +31,11 @@ class CorsConfigTests : BehaviorSpec() {
     init {
         Given("허용된 웹 프론트엔드 도메인") {
             When("사전 요청을 보내면") {
-                val response = preflight("https://moamoa-sandbox.aandiclub.com")
+                val response = preflight(ALLOWED_ORIGIN)
 
                 Then("200과 허용 Origin 헤더를 반환한다") {
                     response.status shouldBe 200
-                    response.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN) shouldBe "https://moamoa-sandbox.aandiclub.com"
+                    response.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN) shouldBe ALLOWED_ORIGIN
                 }
             }
         }
@@ -50,5 +50,10 @@ class CorsConfigTests : BehaviorSpec() {
                 }
             }
         }
+    }
+
+    companion object {
+        // application-test.yml의 moamoa.cors.allowed-origins 값
+        private const val ALLOWED_ORIGIN = "https://allowed.example.com"
     }
 }
