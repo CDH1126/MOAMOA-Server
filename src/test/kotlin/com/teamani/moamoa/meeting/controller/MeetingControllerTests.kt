@@ -376,6 +376,43 @@ class MeetingControllerTests : BehaviorSpec() {
             }
         }
 
+        Given("Authorization 헤더의 스킴 표기나 공백이 다른 요청이 주어졌을 때") {
+            listOf(
+                "소문자 bearer" to "bearer $ACCESS_TOKEN",
+                "대문자 BEARER" to "BEARER $ACCESS_TOKEN",
+                "스킴과 토큰 사이 공백 여러 개" to "Bearer   $ACCESS_TOKEN"
+            ).forEach { (case, header) ->
+                When("$case 로 요청하면") {
+                    Then("같은 사용자로 인증되어 200을 반환한다") {
+                        `when`(meetingService.getInviteCode(1L, USER_ID)).thenReturn(MeetingInviteCodeResponse("A1B2C3D4"))
+
+                        mockMvc.get("/v1/meetings/1/invite-code") {
+                            header(HttpHeaders.AUTHORIZATION, header)
+                        }.andExpect {
+                            status { isOk() }
+                            jsonPath("$.data.inviteCode") { value("A1B2C3D4") }
+                        }
+                    }
+                }
+            }
+
+            listOf(
+                "토큰 없이 Bearer만" to "Bearer",
+                "스킴과 토큰 사이 공백 없음" to "Bearer$ACCESS_TOKEN",
+                "다른 스킴" to "Basic $ACCESS_TOKEN"
+            ).forEach { (case, header) ->
+                When("$case 보내면") {
+                    Then("401 UNAUTHORIZED를 응답한다") {
+                        mockMvc.get("/v1/meetings/1/invite-code") {
+                            header(HttpHeaders.AUTHORIZATION, header)
+                        }.andExpect {
+                            expectError(401, "UNAUTHORIZED")
+                        }
+                    }
+                }
+            }
+        }
+
         Given("인증되지 않은 모임 생성 요청이 주어졌을 때") {
             When("Authorization 헤더가 없으면") {
                 Then("401 UNAUTHORIZED이고 Service를 호출하지 않는다") {

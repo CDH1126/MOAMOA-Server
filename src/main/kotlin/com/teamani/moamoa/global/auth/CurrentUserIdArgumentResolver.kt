@@ -24,13 +24,18 @@ class CurrentUserIdArgumentResolver(
         binderFactory: WebDataBinderFactory?
     ): Long {
         val header = webRequest.getHeader(HttpHeaders.AUTHORIZATION)
-        if (header == null || !header.startsWith(BEARER_PREFIX)) {
+            ?: throw ApiException(ErrorCode.UNAUTHORIZED)
+
+        // 인증 스킴은 대소문자를 구분하지 않고(bearer·BEARER 허용), 스킴과 토큰 사이 공백이 여러 개여도 허용
+        val parts = header.trim().split(WHITESPACE, limit = 2)
+        if (parts.size != 2 || !parts[0].equals(BEARER_SCHEME, ignoreCase = true)) {
             throw ApiException(ErrorCode.UNAUTHORIZED)
         }
-        return jwtTokenProvider.getUserId(header.removePrefix(BEARER_PREFIX))
+        return jwtTokenProvider.getUserId(parts[1])
     }
 
     companion object {
-        private const val BEARER_PREFIX = "Bearer "
+        private const val BEARER_SCHEME = "Bearer"
+        private val WHITESPACE = Regex("\\s+")
     }
 }
