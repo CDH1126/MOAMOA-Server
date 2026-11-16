@@ -216,11 +216,11 @@ class AuthIntegrationTests : BehaviorSpec() {
 
         Given("로그인한 기기가 있을 때") {
             val email = "logout-user@example.com"
-            signUp(email)
+            val userId = signUp(email)
             val login = authService.login(LoginRequest(email, PASSWORD))
 
             When("로그아웃하면") {
-                authService.logout(LogoutRequest(login.refreshToken))
+                authService.logout(userId, LogoutRequest(login.refreshToken))
 
                 Then("기존 리프레시 토큰으로 재발급할 수 없다") {
                     val exception = shouldThrow<ApiException> {
@@ -230,7 +230,23 @@ class AuthIntegrationTests : BehaviorSpec() {
                 }
 
                 Then("같은 토큰으로 다시 로그아웃해도 오류가 나지 않는다") {
-                    authService.logout(LogoutRequest(login.refreshToken))
+                    authService.logout(userId, LogoutRequest(login.refreshToken))
+                }
+            }
+        }
+
+        Given("다른 사용자의 리프레시 토큰으로 로그아웃을 요청할 때") {
+            val ownerEmail = "logout-owner@example.com"
+            signUp(ownerEmail)
+            val ownerLogin = authService.login(LoginRequest(ownerEmail, PASSWORD))
+            val otherUserId = signUp("logout-other@example.com")
+
+            When("로그아웃하면") {
+                authService.logout(otherUserId, LogoutRequest(ownerLogin.refreshToken))
+
+                Then("오류 없이 끝나지만 토큰 주인의 리프레시 토큰은 삭제되지 않는다") {
+                    refreshTokenRepository.findByTokenHash(sha256(ownerLogin.refreshToken)) shouldNotBe null
+                    authService.refresh(TokenRefreshRequest(ownerLogin.refreshToken)).refreshToken shouldNotBe ownerLogin.refreshToken
                 }
             }
         }

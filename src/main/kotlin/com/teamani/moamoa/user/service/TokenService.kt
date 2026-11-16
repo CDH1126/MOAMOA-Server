@@ -54,10 +54,10 @@ class TokenService(
         return createTokens(token.userId)
     }
 
-    // 이미 삭제된 토큰이어도 예외 없이 처리
+    // 요청한 사용자의 토큰만 삭제. 이미 삭제됐거나 다른 사용자의 토큰이어도 예외 없이 처리 (토큰 존재 여부를 알리지 않음)
     @Transactional
-    fun revokeToken(refreshToken: String) {
-        refreshTokenRepository.deleteByTokenHash(sha256(refreshToken))
+    fun revokeToken(userId: Long, refreshToken: String) {
+        refreshTokenRepository.deleteByTokenHashAndUserId(sha256(refreshToken), userId)
     }
 
     // 같은 사용자의 발급을 한 번에 하나씩 처리해 최대 기기 수를 지키고, 없거나 탈퇴한 사용자는 401

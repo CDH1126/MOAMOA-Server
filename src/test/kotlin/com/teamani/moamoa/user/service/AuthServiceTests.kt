@@ -110,10 +110,10 @@ class AuthServiceTests : BehaviorSpec({
         }
 
         When("로그아웃을 요청하면") {
-            Then("해당 리프레시 토큰을 폐기한다") {
-                authService.logout(LogoutRequest(refreshToken = "old-refresh"))
+            Then("요청한 사용자의 리프레시 토큰을 폐기한다") {
+                authService.logout(7L, LogoutRequest(refreshToken = "old-refresh"))
 
-                verify(tokenService).revokeToken("old-refresh")
+                verify(tokenService).revokeToken(7L, "old-refresh")
             }
         }
     }

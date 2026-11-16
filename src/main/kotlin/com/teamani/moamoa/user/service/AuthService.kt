@@ -36,8 +36,8 @@ class AuthService(
         toResponse(tokenService.reissueTokens(requireNotNull(request.refreshToken) { "리프레시 토큰은 필수입니다." }))
 
     @Transactional
-    fun logout(request: LogoutRequest) {
-        tokenService.revokeToken(requireNotNull(request.refreshToken) { "리프레시 토큰은 필수입니다." })
+    fun logout(userId: Long, request: LogoutRequest) {
+        tokenService.revokeToken(userId, requireNotNull(request.refreshToken) { "리프레시 토큰은 필수입니다." })
     }
 
     private fun toResponse(tokens: IssuedTokens) =

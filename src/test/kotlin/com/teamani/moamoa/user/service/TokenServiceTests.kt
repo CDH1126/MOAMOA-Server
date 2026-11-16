@@ -13,6 +13,7 @@ import io.kotest.matchers.shouldBe
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyList
+import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.inOrder
@@ -186,13 +187,13 @@ class TokenServiceTests : BehaviorSpec({
     }
 
     Given("로그아웃으로 토큰을 폐기할 때") {
-        When("이미 삭제된 토큰이어도") {
-            Then("예외 없이 토큰 해시로 삭제를 요청한다") {
-                `when`(refreshTokenRepository.deleteByTokenHash(anyString())).thenReturn(0)
+        When("이미 삭제됐거나 다른 사용자의 토큰이어도") {
+            Then("예외 없이 요청한 사용자 기준으로 토큰 해시 삭제를 요청한다") {
+                `when`(refreshTokenRepository.deleteByTokenHashAndUserId(anyString(), anyLong())).thenReturn(0)
 
-                tokenService.revokeToken("old-refresh")
+                tokenService.revokeToken(userId, "old-refresh")
 
-                verify(refreshTokenRepository).deleteByTokenHash(sha256("old-refresh"))
+                verify(refreshTokenRepository).deleteByTokenHashAndUserId(sha256("old-refresh"), userId)
             }
         }
     }
