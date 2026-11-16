@@ -3,6 +3,13 @@ package com.teamani.moamoa.schedule
 import com.teamani.moamoa.attendance.entity.Attendance
 import com.teamani.moamoa.attendance.entity.AttendanceStatus
 import com.teamani.moamoa.attendance.repository.AttendanceRepository
+import com.teamani.moamoa.global.exception.ApiException
+import com.teamani.moamoa.global.exception.ErrorCode
+import com.teamani.moamoa.meeting.entity.Meeting
+import com.teamani.moamoa.meeting.repository.MeetingRepository
+import com.teamani.moamoa.member.entity.Member
+import com.teamani.moamoa.member.entity.MemberRole
+import com.teamani.moamoa.member.repository.MemberRepository
 import com.teamani.moamoa.schedule.entity.Schedule
 import com.teamani.moamoa.schedule.repository.ScheduleRepository
 import com.teamani.moamoa.schedule.service.ScheduleService
@@ -28,6 +35,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import java.time.OffsetDateTime
+import java.util.UUID
 
 // 실제 트랜잭션·DB에서 일정 삭제 시 출석·투표 정리, 정산 연결 해제, 실패 시 롤백을 검증
 @SpringBootTest
@@ -54,10 +62,15 @@ class ScheduleDeleteIntegrationTests : BehaviorSpec() {
     @Autowired
     lateinit var settlementRepository: SettlementRepository
 
+    @Autowired
+    lateinit var meetingRepository: MeetingRepository
+
+    @Autowired
+    lateinit var memberRepository: MemberRepository
+
     init {
         Given("출석·투표 기록과 연결된 정산이 있는 일정이 있을 때") {
-            // 다른 테스트 데이터와 섞이지 않도록 전용 모임 ID 사용
-            val meetingId = 9601L
+            val meetingId = savedMeeting()
             val scheduleId = savedSchedule(meetingId)
             val otherScheduleId = savedSchedule(meetingId)
             saveRecords(scheduleId)
@@ -67,7 +80,7 @@ class ScheduleDeleteIntegrationTests : BehaviorSpec() {
             val paymentId = savedPayment(settlementId)
 
             When("일정을 삭제하면") {
-                scheduleService.deleteSchedule(meetingId, 1L, scheduleId)
+                scheduleService.deleteSchedule(meetingId, ADMIN_USER_ID, scheduleId)
 
                 Then("일정과 해당 일정의 출석·투표 기록이 삭제된다") {
                     scheduleRepository.findById(scheduleId).isPresent shouldBe false
@@ -97,7 +110,7 @@ class ScheduleDeleteIntegrationTests : BehaviorSpec() {
         }
 
         Given("연결 기록을 모두 정리한 뒤 마지막 일정 삭제에서 오류가 나는 상황에서") {
-            val meetingId = 9602L
+            val meetingId = savedMeeting()
             val scheduleId = savedSchedule(meetingId)
             saveRecords(scheduleId)
             val settlementId = checkNotNull(savedSettlement(meetingId, scheduleId).id)
@@ -105,7 +118,7 @@ class ScheduleDeleteIntegrationTests : BehaviorSpec() {
             When("일정을 삭제하면") {
                 doThrow(IllegalStateException("일정 삭제 실패")).`when`(scheduleRepository).delete(any(Schedule::class.java))
                 val exception = shouldThrow<IllegalStateException> {
-                    scheduleService.deleteSchedule(meetingId, 1L, scheduleId)
+                    scheduleService.deleteSchedule(meetingId, ADMIN_USER_ID, scheduleId)
                 }
                 reset(scheduleRepository)
 
@@ -118,6 +131,50 @@ class ScheduleDeleteIntegrationTests : BehaviorSpec() {
                 }
             }
         }
+
+        Given("출석·투표 기록이 있는 일정을 관리자가 아닌 사용자나 종료된 모임에서 삭제하려 할 때") {
+            val meetingId = savedMeeting()
+            val scheduleId = savedSchedule(meetingId)
+            saveRecords(scheduleId)
+            val endedMeetingId = savedMeeting(ended = true)
+            val endedMeetingScheduleId = savedSchedule(endedMeetingId)
+
+            When("일반 구성원이 삭제하면") {
+                val exception = shouldThrow<ApiException> {
+                    scheduleService.deleteSchedule(meetingId, MEMBER_USER_ID, scheduleId)
+                }
+
+                Then("403 FORBIDDEN이고 일정과 출석·투표 기록이 그대로 남는다") {
+                    exception.errorCode shouldBe ErrorCode.FORBIDDEN
+                    scheduleRepository.findById(scheduleId).isPresent shouldBe true
+                    attendanceRepository.findAllByScheduleId(scheduleId).size shouldBe 1
+                    voteRepository.findAllByScheduleId(scheduleId).size shouldBe 1
+                }
+            }
+
+            When("종료된 모임의 관리자가 삭제하면") {
+                val exception = shouldThrow<ApiException> {
+                    scheduleService.deleteSchedule(endedMeetingId, ADMIN_USER_ID, endedMeetingScheduleId)
+                }
+
+                Then("404 NOT_FOUND이고 일정이 그대로 남는다") {
+                    exception.errorCode shouldBe ErrorCode.NOT_FOUND
+                    scheduleRepository.findById(endedMeetingScheduleId).isPresent shouldBe true
+                }
+            }
+        }
+    }
+
+    // 관리자(ADMIN_USER_ID)와 일반 구성원(MEMBER_USER_ID)이 있는 모임 저장
+    private fun savedMeeting(ended: Boolean = false): Long {
+        val meeting = Meeting(name = "모아모아", inviteCode = UUID.randomUUID().toString().take(8))
+        if (ended) {
+            meeting.end()
+        }
+        val meetingId = checkNotNull(meetingRepository.save(meeting).id)
+        memberRepository.save(Member(meetingId = meetingId, userId = ADMIN_USER_ID, role = MemberRole.ADMIN))
+        memberRepository.save(Member(meetingId = meetingId, userId = MEMBER_USER_ID, role = MemberRole.MEMBER))
+        return meetingId
     }
 
     private fun savedSchedule(meetingId: Long): Long =
@@ -175,5 +232,7 @@ class ScheduleDeleteIntegrationTests : BehaviorSpec() {
     companion object {
         private val SUBMITTED_AT: OffsetDateTime = OffsetDateTime.parse("2099-10-12T10:00:00+09:00")
         private val CONFIRMED_AT: OffsetDateTime = OffsetDateTime.parse("2099-10-13T10:00:00+09:00")
+        private const val ADMIN_USER_ID = 9601L
+        private const val MEMBER_USER_ID = 9602L
     }
 }

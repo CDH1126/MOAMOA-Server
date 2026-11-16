@@ -1,5 +1,7 @@
 package com.teamani.moamoa.schedule.controller
 
+import com.teamani.moamoa.global.auth.CurrentUserIdArgumentResolver
+import com.teamani.moamoa.global.auth.JwtTokenProvider
 import com.teamani.moamoa.global.exception.ApiException
 import com.teamani.moamoa.global.exception.ErrorCode
 import com.teamani.moamoa.global.exception.GlobalExceptionHandler
@@ -15,6 +17,7 @@ import com.teamani.moamoa.schedule.service.ScheduleService
 import io.kotest.core.spec.style.BehaviorSpec
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
@@ -24,6 +27,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.test.web.servlet.setup.StandaloneMockMvcBuilder
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.Optional
@@ -32,9 +36,21 @@ class ScheduleControllerTests : BehaviorSpec({
 
     val scheduleService: ScheduleService = mock(ScheduleService::class.java)
     val scheduleController = ScheduleController(scheduleService)
-    val mockMvc: MockMvc = MockMvcBuilders.standaloneSetup(scheduleController)
+
+    // 토큰 검증은 mock으로 대체: ACCESS_TOKEN은 사용자 1, MEMBER_TOKEN은 사용자 2(ADMIN 아님)로 인증
+    val jwtTokenProvider: JwtTokenProvider = mock(JwtTokenProvider::class.java)
+    `when`(jwtTokenProvider.getUserId(ACCESS_TOKEN)).thenReturn(1L)
+    `when`(jwtTokenProvider.getUserId(MEMBER_TOKEN)).thenReturn(MEMBER_USER_ID)
+
+    fun mockMvcBuilder(): StandaloneMockMvcBuilder = MockMvcBuilders.standaloneSetup(scheduleController)
         .setControllerAdvice(GlobalExceptionHandler())
+        .setCustomArgumentResolvers(CurrentUserIdArgumentResolver(jwtTokenProvider))
+
+    // 모든 요청에 기본으로 사용자 1의 토큰을 붙임 (401 테스트는 토큰 없는 noAuthMockMvc 사용)
+    val mockMvc: MockMvc = mockMvcBuilder()
+        .defaultRequest<StandaloneMockMvcBuilder>(get("/").header(HttpHeaders.AUTHORIZATION, "Bearer $ACCESS_TOKEN"))
         .build()
+    val noAuthMockMvc: MockMvc = mockMvcBuilder().build()
 
     // 요청 일시는 역직렬화 시 오프셋이 바뀌어도 equals가 유지되도록 UTC(Z)로 작성
     // 요청 시작 일시는 과거 검증을 통과하도록 미래 날짜로 작성
@@ -178,21 +194,25 @@ class ScheduleControllerTests : BehaviorSpec({
 
     Given("from 또는 to가 누락되었거나 형식이 잘못된 일정 목록 조회 요청이 주어졌을 때") {
         val meetingId = 1L
+        // 누락은 MISSING_REQUIRED_VALUE, 날짜 형식 오류는 INPUT_ERROR (명세 2-2)
         val invalidQueries = mapOf(
-            "from 누락" to mapOf("to" to "2026-10-31"),
-            "to 누락" to mapOf("from" to "2026-10-01"),
-            "from 형식 오류" to mapOf("from" to "2026/10/01", "to" to "2026-10-31"),
-            "to 형식 오류" to mapOf("from" to "2026-10-01", "to" to "20261031")
+            "from 누락" to (mapOf("to" to "2026-10-31") to "MISSING_REQUIRED_VALUE"),
+            "to 누락" to (mapOf("from" to "2026-10-01") to "MISSING_REQUIRED_VALUE"),
+            "from 형식 오류" to (mapOf("from" to "2026/10/01", "to" to "2026-10-31") to "INPUT_ERROR"),
+            "to 형식 오류" to (mapOf("from" to "2026-10-01", "to" to "20261031") to "INPUT_ERROR")
         )
 
-        invalidQueries.forEach { (case, params) ->
+        invalidQueries.forEach { (case, query) ->
+            val (params, errorCode) = query
             When("$case 요청으로 목록 API를 호출하면") {
                 val request = get("/v1/meetings/$meetingId/schedules")
                 params.forEach { (name, value) -> request.param(name, value) }
                 val resultActions = mockMvc.perform(request)
 
-                Then("400 Bad Request를 반환한다") {
-                    resultActions.andExpect(status().isBadRequest)
+                Then("400 Bad Request와 $errorCode 공통 에러 응답을 반환한다") {
+                    resultActions
+                        .andExpect(status().isBadRequest)
+                        .andExpect(jsonPath("$.error.code").value(errorCode))
                 }
             }
         }
@@ -280,8 +300,10 @@ class ScheduleControllerTests : BehaviorSpec({
         When("상세 API를 호출하면") {
             val resultActions = mockMvc.perform(get("/v1/meetings/1/schedules/abc"))
 
-            Then("400 Bad Request를 반환한다") {
-                resultActions.andExpect(status().isBadRequest)
+            Then("400 Bad Request와 INPUT_ERROR 공통 에러 응답을 반환한다") {
+                resultActions
+                    .andExpect(status().isBadRequest)
+                    .andExpect(jsonPath("$.error.code").value("INPUT_ERROR"))
             }
         }
     }
@@ -483,4 +505,51 @@ class ScheduleControllerTests : BehaviorSpec({
             }
         }
     }
-})
+
+    Given("액세스 토큰 없이 일정 API를 요청할 때") {
+        listOf(
+            "생성" to post("/v1/meetings/1/schedules")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{ "title": "10월 정기 러닝", "startAt": "2099-10-10T22:00:00Z" }"""),
+            "목록" to get("/v1/meetings/1/schedules").param("from", "2026-10-01").param("to", "2026-10-31"),
+            "상세" to get("/v1/meetings/1/schedules/20"),
+            "수정" to patch("/v1/meetings/1/schedules/20")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{ "title": "새 제목" }"""),
+            "삭제" to delete("/v1/meetings/1/schedules/20")
+        ).forEach { (api, request) ->
+            When("$api API를 호출하면") {
+                val resultActions = noAuthMockMvc.perform(request)
+
+                Then("401 Unauthorized와 UNAUTHORIZED 공통 에러 응답을 반환한다") {
+                    resultActions
+                        .andExpect(status().isUnauthorized)
+                        .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"))
+                }
+            }
+        }
+    }
+
+    Given("모임 관리자(ADMIN)가 아닌 사용자의 일정 삭제 요청이 주어졌을 때") {
+        `when`(scheduleService.deleteSchedule(1L, MEMBER_USER_ID, 20L))
+            .thenThrow(ApiException(ErrorCode.FORBIDDEN, "모임 관리자만 요청할 수 있습니다."))
+
+        When("삭제 API를 호출하면") {
+            val resultActions = mockMvc.perform(
+                delete("/v1/meetings/1/schedules/20").header(HttpHeaders.AUTHORIZATION, "Bearer $MEMBER_TOKEN")
+            )
+
+            Then("토큰의 사용자 기준으로 권한을 확인해 403 Forbidden과 FORBIDDEN 공통 에러 응답을 반환한다") {
+                resultActions
+                    .andExpect(status().isForbidden)
+                    .andExpect(jsonPath("$.error.code").value("FORBIDDEN"))
+            }
+        }
+    }
+}) {
+    companion object {
+        private const val ACCESS_TOKEN = "test-access-token"
+        private const val MEMBER_TOKEN = "member-access-token"
+        private const val MEMBER_USER_ID = 2L
+    }
+}
