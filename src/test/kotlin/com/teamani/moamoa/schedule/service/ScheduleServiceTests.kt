@@ -3,6 +3,7 @@ package com.teamani.moamoa.schedule.service
 import com.teamani.moamoa.attendance.repository.AttendanceRepository
 import com.teamani.moamoa.global.exception.ApiException
 import com.teamani.moamoa.global.exception.ErrorCode
+import com.teamani.moamoa.member.service.MemberService
 import com.teamani.moamoa.schedule.dto.ScheduleCreateRequest
 import com.teamani.moamoa.schedule.dto.ScheduleUpdateRequest
 import com.teamani.moamoa.schedule.entity.Schedule
@@ -34,9 +35,11 @@ class ScheduleServiceTests : BehaviorSpec({
     val attendanceRepository: AttendanceRepository = mock(AttendanceRepository::class.java)
     val voteRepository: VoteRepository = mock(VoteRepository::class.java)
     val settlementRepository: SettlementRepository = mock(SettlementRepository::class.java)
-    val scheduleService = ScheduleService(scheduleRepository, attendanceRepository, voteRepository, settlementRepository)
+    val memberService: MemberService = mock(MemberService::class.java)
+    val scheduleService =
+        ScheduleService(scheduleRepository, attendanceRepository, voteRepository, settlementRepository, memberService)
 
-    afterEach { clearInvocations(scheduleRepository, attendanceRepository, voteRepository, settlementRepository) }
+    afterEach { clearInvocations(scheduleRepository, attendanceRepository, voteRepository, settlementRepository, memberService) }
 
     Given("모임 일정 생성 요청 데이터가 주어졌을 때") {
         val meetingId = 1L
@@ -401,6 +404,121 @@ class ScheduleServiceTests : BehaviorSpec({
                 verify(attendanceRepository, never()).deleteAllByScheduleId(anyLong())
                 verify(voteRepository, never()).deleteAllByScheduleId(anyLong())
                 verify(settlementRepository, never()).clearScheduleId(anyLong())
+            }
+        }
+    }
+
+    Given("모임 관리자(ADMIN)가 아닌 사용자가 일정 생성·수정·삭제를 요청할 때") {
+        val meetingId = 1L
+        val memberUserId = 2L
+        `when`(memberService.validateAdmin(meetingId, memberUserId))
+            .thenThrow(ApiException(ErrorCode.FORBIDDEN, "모임 관리자만 요청할 수 있습니다."))
+        val createRequest = ScheduleCreateRequest(
+            title = "10월 정기 러닝",
+            startAt = OffsetDateTime.now().plusDays(1)
+        )
+
+        listOf<Pair<String, () -> Any>>(
+            "createSchedule" to { scheduleService.createSchedule(meetingId, memberUserId, createRequest) },
+            "updateSchedule" to {
+                scheduleService.updateSchedule(meetingId, memberUserId, 20L, ScheduleUpdateRequest(title = Optional.of("새 제목")))
+            },
+            "deleteSchedule" to { scheduleService.deleteSchedule(meetingId, memberUserId, 20L) }
+        ).forEach { (method, call) ->
+            When("$method 메서드를 호출하면") {
+                val exception = shouldThrow<ApiException> { call() }
+
+                Then("FORBIDDEN 예외가 발생하고 일정을 조회·저장·삭제하지 않는다") {
+                    exception.errorCode shouldBe ErrorCode.FORBIDDEN
+                    verify(memberService).validateAdmin(meetingId, memberUserId)
+                    verifyNoInteractions(scheduleRepository, attendanceRepository, voteRepository, settlementRepository)
+                }
+            }
+        }
+    }
+
+    Given("모임 구성원이 아닌 사용자가 일정 목록·상세를 요청할 때") {
+        val meetingId = 1L
+        val outsiderUserId = 3L
+        `when`(memberService.validateMember(meetingId, outsiderUserId))
+            .thenThrow(ApiException(ErrorCode.FORBIDDEN, "모임 구성원만 요청할 수 있습니다."))
+
+        listOf<Pair<String, () -> Any>>(
+            "getSchedules" to {
+                scheduleService.getSchedules(meetingId, outsiderUserId, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31))
+            },
+            "getSchedule" to { scheduleService.getSchedule(meetingId, outsiderUserId, 20L) }
+        ).forEach { (method, call) ->
+            When("$method 메서드를 호출하면") {
+                val exception = shouldThrow<ApiException> { call() }
+
+                Then("FORBIDDEN 예외가 발생하고 일정을 조회하지 않는다") {
+                    exception.errorCode shouldBe ErrorCode.FORBIDDEN
+                    verify(memberService).validateMember(meetingId, outsiderUserId)
+                    verifyNoInteractions(scheduleRepository)
+                }
+            }
+        }
+    }
+
+    Given("권한이 없는 사용자가 요청만으로 잘못된 값을 보낼 때") {
+        val meetingId = 1L
+        val outsiderUserId = 4L
+        `when`(memberService.validateAdmin(meetingId, outsiderUserId))
+            .thenThrow(ApiException(ErrorCode.FORBIDDEN, "모임 관리자만 요청할 수 있습니다."))
+        `when`(memberService.validateMember(meetingId, outsiderUserId))
+            .thenThrow(ApiException(ErrorCode.FORBIDDEN, "모임 구성원만 요청할 수 있습니다."))
+
+        When("종료 일시가 시작 일시보다 이전인 일정을 생성하면") {
+            val exception = shouldThrow<ApiException> {
+                scheduleService.createSchedule(
+                    meetingId,
+                    outsiderUserId,
+                    ScheduleCreateRequest(
+                        title = "10월 정기 러닝",
+                        startAt = OffsetDateTime.parse("2099-10-11T07:00:00+09:00"),
+                        endAt = OffsetDateTime.parse("2099-10-11T06:00:00+09:00")
+                    )
+                )
+            }
+
+            Then("명세 오류 순서대로 권한(403)보다 요청 오류(400 VALIDATION_ERROR)가 먼저다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+                verify(memberService, never()).validateAdmin(meetingId, outsiderUserId)
+            }
+        }
+
+        When("조회 시작일이 종료일보다 이후인 목록을 조회하면") {
+            val exception = shouldThrow<ApiException> {
+                scheduleService.getSchedules(meetingId, outsiderUserId, LocalDate.of(2026, 10, 31), LocalDate.of(2026, 10, 1))
+            }
+
+            Then("명세 오류 순서대로 권한(403)보다 요청 오류(400 VALIDATION_ERROR)가 먼저다") {
+                exception.errorCode shouldBe ErrorCode.VALIDATION_ERROR
+                verify(memberService, never()).validateMember(meetingId, outsiderUserId)
+            }
+        }
+    }
+
+    Given("없거나 종료된 모임의 일정을 요청할 때") {
+        val endedMeetingId = 404L
+        val userId = 1L
+        `when`(memberService.validateAdmin(endedMeetingId, userId))
+            .thenThrow(ApiException(ErrorCode.NOT_FOUND, "모임을 찾을 수 없습니다."))
+        `when`(memberService.validateMember(endedMeetingId, userId))
+            .thenThrow(ApiException(ErrorCode.NOT_FOUND, "모임을 찾을 수 없습니다."))
+
+        listOf<Pair<String, () -> Any>>(
+            "deleteSchedule" to { scheduleService.deleteSchedule(endedMeetingId, userId, 20L) },
+            "getSchedule" to { scheduleService.getSchedule(endedMeetingId, userId, 20L) }
+        ).forEach { (method, call) ->
+            When("$method 메서드를 호출하면") {
+                val exception = shouldThrow<ApiException> { call() }
+
+                Then("NOT_FOUND 예외가 발생하고 일정을 조회하지 않는다") {
+                    exception.errorCode shouldBe ErrorCode.NOT_FOUND
+                    verifyNoInteractions(scheduleRepository)
+                }
             }
         }
     }
