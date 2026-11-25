@@ -71,7 +71,9 @@ cp .env.example .env
 
 1. 회원가입(`POST /v1/users`) 또는 로그인(`POST /v1/auth/login`)을 호출해 응답의 `accessToken` 값을 복사합니다.
 2. 오른쪽 위 **Authorize**를 눌러 `bearerAuth`에 토큰 값만 입력합니다. `Bearer ` 접두어는 Swagger UI가 붙입니다.
-3. 자물쇠 표시가 있는 API를 Try it out으로 호출합니다. 입력한 토큰은 새로고침해도 유지되며, 만료(1시간) 후에는 다시 로그인해 입력합니다.
+3. 자물쇠 표시가 있는 API를 Try it out으로 호출합니다. 토큰이 만료(1시간)되면 다시 로그인해 입력합니다.
+
+`.env`에 `SWAGGER_PERSIST_AUTHORIZATION=true`를 두면 입력한 토큰이 새로고침 후에도 유지됩니다. 토큰이 브라우저에 저장되므로 로컬 개발에서만 사용하고, 운영 Swagger는 기본값(`false`)으로 페이지를 닫으면 토큰이 남지 않습니다.
 
 종료는 실행한 터미널에서 `Ctrl+C`를 누릅니다.
 
@@ -106,6 +108,7 @@ Copy-Item .env.example .env
 | `DB_PASSWORD` | DB 비밀번호 | 실제 DB 비밀번호 |
 | `JWT_SECRET` | JWT 서명 키 (32바이트 이상) | 임의의 긴 문자열 |
 | `CORS_ALLOWED_ORIGINS` | CORS 허용 웹 프론트엔드 Origin (쉼표로 구분, 선택) | `http://localhost:3000` |
+| `SWAGGER_PERSIST_AUTHORIZATION` | Swagger UI에 입력한 액세스 토큰을 브라우저에 유지 (선택, 기본값 `false`, 로컬 개발 전용) | `true` |
 
 `application.yml`은 실행 작업 디렉터리의 `.env`를 Java Properties 형식으로 읽습니다. 저장소 루트에서 실행하고, IntelliJ 실행 설정의 Working directory도 저장소 루트로 지정합니다.
 

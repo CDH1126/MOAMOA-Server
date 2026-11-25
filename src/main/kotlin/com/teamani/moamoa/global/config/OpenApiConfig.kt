@@ -21,9 +21,12 @@ class OpenApiConfig {
 
     // @CurrentUserId를 받는 API만 토큰이 필요하므로, 그 API에만 자물쇠 표시와 Authorization 헤더 전송을 적용
     // (회원가입·로그인·토큰 재발급처럼 토큰 없이 호출하는 API는 제외)
+    // Controller 메서드가 아닌 엔드포인트는 handlerMethod가 null로 전달될 수 있어 안전하게 확인
     @Bean
     fun bearerAuthOperationCustomizer(): OperationCustomizer = OperationCustomizer { operation, handlerMethod ->
-        if (handlerMethod.methodParameters.any { it.hasParameterAnnotation(CurrentUserId::class.java) }) {
+        val requiresAuth = handlerMethod?.methodParameters
+            ?.any { it.hasParameterAnnotation(CurrentUserId::class.java) } == true
+        if (requiresAuth) {
             operation.addSecurityItem(SecurityRequirement().addList(BEARER_AUTH))
         }
         operation

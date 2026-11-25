@@ -19,8 +19,8 @@ moamoa:
 
 springdoc:
   swagger-ui:
-    # Authorize에 입력한 액세스 토큰을 새로고침 후에도 유지 (브라우저에 저장되며 토큰 만료 1시간 후에는 다시 입력)
-    persist-authorization: true
+    # Authorize 토큰을 브라우저에 유지할지 여부 (운영은 기본값 false, 로컬에서만 .env로 true)
+    persist-authorization: ${SWAGGER_PERSIST_AUTHORIZATION:false}
 
 jwt:
   secret: ${JWT_SECRET}
