@@ -43,8 +43,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 
-// 실제 트랜잭션·DB에서 같은 일정의 투표 제출·확정·일정 삭제가 동시에 들어올 때 일정 단위로 순서대로 처리되는지,
-// 투표 제출과 그 구성원의 모임 나가기가 동시에 들어올 때 구성원 단위로 순서대로 처리되는지 검증
+// 실제 DB에서 투표 제출·확정·일정 삭제·모임 나가기가 동시에 들어와도 잠금으로 순서대로 처리되는지 검증
 @SpringBootTest
 @ActiveProfiles("test")
 class VoteConcurrencyTests : BehaviorSpec() {
